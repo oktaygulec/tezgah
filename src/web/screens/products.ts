@@ -86,6 +86,7 @@ export function createProductsScreen(): Screen {
           {},
           h("td", { class: "mono" }, p.barcode),
           h("td", {}, p.name),
+          h("td", { class: "num muted" }, p.cost_kurus === null ? "–" : formatMoney(p.cost_kurus)),
           h("td", { class: "num strong" }, formatMoney(p.price_kurus)),
           h("td", { class: `num strong${p.stock_qty <= 0 ? " stock-low" : ""}` }, p.stock_qty),
           h(
@@ -110,7 +111,7 @@ export function createProductsScreen(): Screen {
       ),
     );
     if (shown.length === 0) {
-      tbody.append(h("tr", {}, h("td", { colSpan: 5, class: "empty" }, products.length ? "Aramaya uyan ürün yok." : "Henüz ürün yok. \"Yeni Ürün\" ile ekleyin.")));
+      tbody.append(h("tr", {}, h("td", { colSpan: 6, class: "empty" }, products.length ? "Aramaya uyan ürün yok." : "Henüz ürün yok. \"Yeni Ürün\" ile ekleyin.")));
     }
     info.textContent =
       found.length > MAX_ROWS
@@ -139,7 +140,7 @@ export function createProductsScreen(): Screen {
       h(
         "table",
         { class: "table" },
-        h("thead", {}, h("tr", {}, h("th", {}, "Barkod"), h("th", {}, "Ad"), h("th", { class: "num" }, "Fiyat"), h("th", { class: "num" }, "Stok"), h("th", {}, ""))),
+        h("thead", {}, h("tr", {}, h("th", {}, "Barkod"), h("th", {}, "Ad"), h("th", { class: "num" }, "Alış"), h("th", { class: "num" }, "Satış"), h("th", { class: "num" }, "Stok"), h("th", {}, ""))),
         tbody,
       ),
     ),

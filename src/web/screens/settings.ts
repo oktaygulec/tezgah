@@ -28,6 +28,7 @@ const PRINTER_FIELDS: [NumberKey, number][] = [
   ["print_offset_x_mm", 0.5],
   ["print_offset_y_mm", 0.5],
 ];
+const STOCK_FIELDS: [NumberKey, number][] = [["low_stock_threshold", 1]];
 const NO_PRINTER = "";
 
 export function createSettingsScreen(): Screen {
@@ -42,7 +43,7 @@ export function createSettingsScreen(): Screen {
   const rotate = h("input", { type: "checkbox" });
   const printerStatus = h("div", { class: "muted small" });
 
-  for (const [key, step] of [...LABEL_FIELDS, ...PRINTER_FIELDS]) {
+  for (const [key, step] of [...LABEL_FIELDS, ...PRINTER_FIELDS, ...STOCK_FIELDS]) {
     const [min, max] = SETTING_RANGES[key];
     numbers.set(key, h("input", { class: "input input-number", type: "number", min, max, step }));
   }
@@ -169,6 +170,9 @@ export function createSettingsScreen(): Screen {
     ...LABEL_FIELDS.map(numberField),
     h("label", { class: "check" }, showName, " Ürün adını göster"),
     h("label", { class: "check" }, showPrice, " Fiyatı göster"),
+    h("h2", {}, "Stok"),
+    ...STOCK_FIELDS.map(numberField),
+    h("p", { class: "muted small" }, "Stoğu bu sayı veya daha az olan ürünler Azalan Stok ekranında listelenir."),
     h("h2", {}, "Yazıcı"),
     h(
       "p",

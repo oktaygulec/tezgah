@@ -6,7 +6,7 @@ import { ean13Warning } from "../shared/barcode";
 import { formatMoney, formatMoneyPlain, parseMoney } from "../shared/money";
 import type { Product } from "../shared/types";
 import { parseQuantity, stockQuantityError } from "../shared/stock";
-import { barcodeError, MAX_BARCODE_LENGTH, MAX_NAME_LENGTH, nameError, priceTextError } from "../shared/validate";
+import { barcodeError, costTextError, MAX_BARCODE_LENGTH, MAX_NAME_LENGTH, nameError, priceTextError } from "../shared/validate";
 import { api, findProduct } from "./api";
 import { errorMessage, h, openDialog } from "./ui";
 
@@ -50,6 +50,16 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
     });
     // Starting stock: only for a new product. Later changes go through the Stok dialog (they need a history).
     const stock = h("input", { class: "input input-number", name: "stock", inputMode: "numeric", autocomplete: "off", placeholder: "0" });
+    // Purchase price: optional; it never appears on labels or on the price check screen.
+    const cost = h("input", {
+      class: "input",
+      name: "cost",
+      inputMode: "decimal",
+      autocomplete: "off",
+      placeholder: "Bilinmiyorsa boş bırakın",
+      value: product && product.cost_kurus !== null ? formatMoneyPlain(product.cost_kurus) : "",
+    });
+    const profitInfo = h("div", { class: "field-info" });
     const formError = h("div", { class: "form-error", role: "alert" });
     const saveButton = h("button", { type: "submit", class: "btn btn-primary" }, "Kaydet");
 
@@ -57,7 +67,8 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
     const duplicateBox = h("div", { class: "duplicate", hidden: true });
     const barcodeField = field("Barkod", h("div", { class: "row" }, barcode, generate), duplicateBox);
     const nameField = field("Ürün adı", name);
-    const priceField = field("Fiyat (₺)", price);
+    const priceField = field("Satış fiyatı (₺)", price);
+    const costField = field("Alış fiyatı (₺, isteğe bağlı)", cost, profitInfo);
     const stockField = field("Başlangıç stoğu (adet, isteğe bağlı)", stock);
 
     /** The product that already uses the typed barcode (another product), if any. */
@@ -89,7 +100,22 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
     const stockValue = () => (stock.value.trim() === "" ? 0 : parseQuantity(stock.value));
     const checkStock = () =>
       show(stockField, stock, product ? null : Number.isNaN(stockValue()) ? "Stok 0 veya daha büyük bir tam sayı olmalı." : stockQuantityError("set", stockValue()));
-    const checkAll = () => [checkBarcode(), checkName(), checkPrice(), checkStock()];
+    /** Purchase price check, plus the profit per piece when both prices are valid. */
+    function checkCost() {
+      const error = show(costField, cost, costTextError(cost.value));
+      const sale = parseMoney(price.value);
+      const buy = cost.value.trim() === "" ? null : parseMoney(cost.value);
+      profitInfo.textContent = "";
+      costField.hint.textContent = "";
+      if (!error && sale !== null && buy !== null) {
+        const profit = sale - buy;
+        if (profit < 0) costField.hint.textContent = `Alış fiyatı satış fiyatından yüksek: her satışta ${formatMoney(-profit)} zarar.`;
+        else profitInfo.textContent = `Adet başı kâr: ${formatMoney(profit)}` + (sale > 0 ? ` (%${((profit / sale) * 100).toFixed(1).replace(".", ",")})` : "");
+      }
+      return error;
+    }
+    const inputs = [barcode, name, price, cost, stock];
+    const checkAll = () => [checkBarcode(), checkName(), checkPrice(), checkCost(), checkStock()];
 
     function renderDuplicate() {
       duplicateBox.hidden = !duplicate;
@@ -129,9 +155,13 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
       lookupTimer = setTimeout(() => void lookupBarcode(), 250);
     });
     name.addEventListener("input", checkName);
-    price.addEventListener("input", checkPrice);
+    price.addEventListener("input", () => {
+      checkPrice();
+      checkCost();
+    });
+    cost.addEventListener("input", checkCost);
     stock.addEventListener("input", checkStock);
-    for (const input of [barcode, name, price, stock]) {
+    for (const input of inputs) {
       input.addEventListener("blur", () => {
         if (input.value.trim()) touched.add(input);
         checkAll();
@@ -176,16 +206,21 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
         onsubmit: async (e: Event) => {
           e.preventDefault();
           formError.textContent = "";
-          for (const input of [barcode, name, price, stock]) touched.add(input);
+          for (const input of inputs) touched.add(input);
           clearTimeout(lookupTimer);
           await lookupBarcode();
           const errors = checkAll();
           const firstBad = errors.findIndex(Boolean);
           if (firstBad >= 0) {
-            [barcode, name, price, stock][firstBad]!.focus();
+            inputs[firstBad]!.focus();
             return;
           }
-          const input = { barcode: barcode.value.trim(), name: name.value.trim(), price_kurus: parseMoney(price.value)! };
+          const input = {
+            barcode: barcode.value.trim(),
+            name: name.value.trim(),
+            price_kurus: parseMoney(price.value)!,
+            cost_kurus: cost.value.trim() === "" ? null : parseMoney(cost.value)!,
+          };
           saveButton.disabled = true;
           try {
             close({ saved: product ? await api.updateProduct(product.id, input) : await api.createProduct(input, stockValue()) });
@@ -200,6 +235,7 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
       barcodeField.wrap,
       nameField.wrap,
       priceField.wrap,
+      costField.wrap,
       !product && stockField.wrap,
       formError,
       h("div", { class: "dialog-actions" }, h("button", { type: "button", class: "btn", onclick: () => close(null) }, "Vazgeç"), saveButton),
@@ -210,6 +246,7 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
       touched.add(barcode);
       void lookupBarcode();
     }
+    if (product) checkCost(); // show the profit of a product with prices
     // Focus the first empty field once the dialog is open.
     setTimeout(() => (barcode.value ? (name.value ? price : name) : barcode).focus(), 0);
     return [form];

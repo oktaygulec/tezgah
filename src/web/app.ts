@@ -8,6 +8,8 @@ import { createProductsScreen } from "./screens/products";
 import { createSaleScreen } from "./screens/sale";
 import { createSettingsScreen } from "./screens/settings";
 import { createStockInScreen } from "./screens/stockIn";
+import { createLowStockScreen } from "./screens/lowStock";
+import { createReportsScreen } from "./screens/reports";
 import { onSettingsChange, setSettings } from "./state";
 import { errorMessage, run, setActiveScanInput, toast, type Screen } from "./ui";
 
@@ -19,8 +21,10 @@ const screens: Screen[] = [
   createPriceScreen(),
   createProductsScreen(),
   createStockInScreen(),
+  createLowStockScreen(),
   createLabelsScreen(),
   createOrdersScreen(),
+  createReportsScreen(),
   createSettingsScreen(),
 ];
 
