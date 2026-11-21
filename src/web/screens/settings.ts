@@ -1,4 +1,5 @@
-// Ayarlar: shop name, label size and layout, printer, database backup, update.
+// Ayarlar: one form in section cards (Genel, Etiket with its preview, Yazıcı) plus Yedek and Güncelleme.
+// The Kaydet bar stays at the top of the screen.
 
 import { SETTING_LABELS, SETTING_RANGES, settingsErrors, type NumericSettingKey, type Settings } from "../../shared/types";
 import { api } from "../api";
@@ -55,11 +56,13 @@ export function createSettingsScreen(): Screen {
 
   const numberField = ([key]: [NumberKey, number]) => {
     const input = numbers.get(key)!;
+    input.classList.add("input-fill");
     const error = h("div", { class: "field-error", role: "alert" });
     fieldErrors.set(key, { input, error });
-    return h("div", {}, h("label", { class: "field field-inline" }, h("span", {}, SETTING_LABELS[key]), input), error);
+    return h("label", { class: "field field-compact" }, h("span", {}, SETTING_LABELS[key]), input, error);
   };
   const saveButton = h("button", { type: "submit", class: "btn btn-primary" }, "Kaydet");
+  const dirtyText = h("span", { class: "muted small" });
   const testButton = h("button", { type: "button", class: "btn", onclick: () => run(testPrint) }, "Kaydet ve deneme etiketi yazdır");
 
   /** Marks invalid fields; returns true when the form can be saved. */
@@ -142,7 +145,7 @@ export function createSettingsScreen(): Screen {
     const s = readForm();
     const ok = checkForm(s);
     preview.replaceChildren(
-      h("div", { class: "muted" }, "Önizleme (gerçek boyut):"),
+      h("div", { class: "muted small" }, "Önizleme (gerçek boyut)"),
       ok ? labelPreview(PREVIEW_PRODUCT, s) : h("div", { class: "form-error" }, "Önizleme için kırmızı işaretli alanları düzeltin."),
     );
   }
@@ -154,31 +157,47 @@ export function createSettingsScreen(): Screen {
     try {
       await saveForm();
       toast("Ayarlar kaydedildi.", "success");
+      dirtyText.textContent = "";
       renderPreview();
     } catch (err) {
       formError.textContent = (err as Error).message;
     }
   }
 
-  const form = h(
-    "form",
-    { class: "form settings-form", onsubmit: save },
-    h("h2", {}, "Dükkan"),
-    h("label", { class: "field" }, h("span", {}, "Dükkan adı"), shopName),
-    shopNameError,
-    h("h2", {}, "Etiket"),
-    ...LABEL_FIELDS.map(numberField),
-    h("label", { class: "check" }, showName, " Ürün adını göster"),
-    h("label", { class: "check" }, showPrice, " Fiyatı göster"),
-    h("h2", {}, "Stok"),
+  const card = (title: string, cls: string, ...children: (Node | string | false)[]) =>
+    h("section", { class: `settings-card ${cls}` }, h("h2", {}, title), ...children);
+
+  const general = card(
+    "Genel",
+    "card-general",
+    h("label", { class: "field" }, h("span", {}, "Dükkan adı"), shopName, shopNameError),
     ...STOCK_FIELDS.map(numberField),
     h("p", { class: "muted small" }, "Stoğu bu sayı veya daha az olan ürünler Azalan Stok ekranında listelenir."),
-    h("h2", {}, "Yazıcı"),
+  );
+
+  const label = card(
+    "Etiket",
+    "card-label",
+    h(
+      "div",
+      { class: "label-settings" },
+      h(
+        "div",
+        {},
+        h("div", { class: "fields-grid" }, ...LABEL_FIELDS.map(numberField)),
+        h("div", { class: "row checks" }, h("label", { class: "check" }, showName, " Ürün adını göster"), h("label", { class: "check" }, showPrice, " Fiyatı göster")),
+      ),
+      preview,
+    ),
+  );
+
+  const printer = card(
+    "Yazıcı",
+    "card-printer",
     h(
       "p",
       { class: "muted small" },
-      "Yazıcı seçilirse Etiket ekranındaki Yazdır düğmesi etiketleri pencere açmadan doğrudan yazıcıya gönderir. " +
-        "TSPL dilini anlayan termal yazıcılar içindir (Xprinter, TSC ve benzerleri).",
+      "Yazıcı seçilirse Yazdır düğmesi etiketleri pencere açmadan doğrudan yazıcıya gönderir. TSPL anlayan termal yazıcılar içindir (Xprinter, TSC ve benzerleri).",
     ),
     h(
       "label",
@@ -187,21 +206,37 @@ export function createSettingsScreen(): Screen {
       h("div", { class: "row" }, printerSelect, h("button", { type: "button", class: "btn", onclick: () => run(() => loadPrinters(printerSelect.value)) }, "Yenile")),
     ),
     printerStatus,
-    ...PRINTER_FIELDS.map(numberField),
+    h("div", { class: "fields-grid" }, ...PRINTER_FIELDS.map(numberField)),
     h("label", { class: "check" }, rotate, " Etiketi 180° çevir (baskı ters çıkıyorsa)"),
     h("div", { class: "row" }, testButton),
-    formError,
-    h("div", { class: "row" }, saveButton),
-    h("h2", {}, "Yedek"),
-    h("p", { class: "muted" }, "Veritabanının şu anki hâlini bilgisayarınıza indirir."),
+  );
+
+  const system = card(
+    "Yedek ve güncelleme",
+    "card-system",
+    h("p", { class: "muted small" }, "Veritabanının şu anki hâlini bilgisayarınıza indirir. Ürün fotoğrafları da yedeğin içindedir."),
     h("a", { class: "btn", href: "/api/backup", download: "" }, "Veritabanı yedeği indir"),
-    h("h2", {}, "Güncelleme"),
+    h("hr", {}),
     versionText,
     createUpdatePanel(),
   );
 
-  form.addEventListener("input", renderPreview);
-  const el = h("section", { class: "screen screen-settings" }, form, preview);
+  const form = h(
+    "form",
+    { class: "settings-page", novalidate: true, onsubmit: save },
+    h("div", { class: "settings-bar" }, h("h2", {}, "Ayarlar"), dirtyText, formError, saveButton),
+    h("div", { class: "settings-grid" }, general, label, printer, system),
+  );
+
+  // The update panel and backup link are not settings: their clicks do not mark the form as changed.
+  for (const part of [general, label, printer]) {
+    part.addEventListener("input", () => {
+      dirtyText.textContent = "Kaydedilmemiş değişiklik var.";
+      renderPreview();
+    });
+  }
+  printerSelect.addEventListener("change", () => (dirtyText.textContent = "Kaydedilmemiş değişiklik var."));
+  const el = h("section", { class: "screen screen-settings" }, form);
 
   return {
     id: "ayarlar",
@@ -211,6 +246,7 @@ export function createSettingsScreen(): Screen {
         setSettings(await api.settings());
         versionText.textContent = `Kurulu sürüm: ${(await api.health()).version}`;
         fill(getSettings());
+        dirtyText.textContent = "";
         renderPreview();
         await loadPrinters(getSettings().printer_name);
       }),

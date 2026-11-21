@@ -1,6 +1,8 @@
 // Thin fetch wrapper: every failure becomes an ApiError with a Turkish message.
 
 import type {
+  Category,
+  CategoryInput,
   ImportResult,
   NewOrderLine,
   Order,
@@ -27,12 +29,12 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: string, url: string, body?: unknown, rawBody?: string): Promise<T> {
+async function request<T>(method: string, url: string, body?: unknown, rawBody?: string | Blob): Promise<T> {
   let res: Response;
   try {
     res = await fetch(url, {
       method,
-      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      headers: body !== undefined ? { "Content-Type": "application/json" } : rawBody instanceof Blob ? { "Content-Type": rawBody.type } : undefined,
       body: rawBody ?? (body !== undefined ? JSON.stringify(body) : undefined),
     });
   } catch {
@@ -66,6 +68,13 @@ export const api = {
     request<{ products: number; pieces: number }>("POST", "/api/stock/receive", { lines, note }),
   updateProduct: (id: number, input: ProductInput) => request<Product>("PUT", `/api/products/${id}`, input),
   deleteProduct: (id: number) => request<{ ok: true }>("DELETE", `/api/products/${id}`),
+  setFavorite: (id: number, favorite: boolean) => request<Product>("PUT", `/api/products/${id}/favorite`, { favorite }),
+  uploadImage: (id: number, image: Blob) => request<Product>("PUT", `/api/products/${id}/image`, undefined, image),
+  deleteImage: (id: number) => request<Product>("DELETE", `/api/products/${id}/image`),
+  categories: () => request<Category[]>("GET", "/api/categories"),
+  createCategory: (input: CategoryInput) => request<Category>("POST", "/api/categories", input),
+  updateCategory: (id: number, input: CategoryInput) => request<Category>("PUT", `/api/categories/${id}`, input),
+  deleteCategory: (id: number) => request<{ ok: true }>("DELETE", `/api/categories/${id}`),
   nextBarcode: () => request<{ barcode: string }>("GET", "/api/barcode/next"),
   importCsv: (text: string) => request<ImportResult>("POST", "/api/products/import", undefined, text),
   orders: (day?: string) => request<Order[]>("GET", day ? `/api/orders?day=${day}` : "/api/orders"),

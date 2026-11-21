@@ -26,7 +26,12 @@ export interface LabelProduct {
   barcode: string;
   name: string;
   price_kurus: number;
+  /** Balloons: a second, smaller price line "Helyumlu ₺…". */
+  helium_price_kurus?: number | null;
 }
+
+/** The helium line is this much of the price font size. */
+const HELIUM_SCALE = 0.6;
 
 export interface RenderedLabel {
   canvas: HTMLCanvasElement;
@@ -116,13 +121,15 @@ export function renderLabel(product: LabelProduct, s: Settings): RenderedLabel {
   const textSpace = Math.max(0, innerH - barcode.height - gap);
   let namePx = s.name_font_pt * DOTS_PER_PT;
   let pricePx = s.price_font_pt * DOTS_PER_PT;
-  const needed = (s.show_name ? 2 * namePx * 1.15 : 0) + (s.show_price ? pricePx * 1.1 : 0);
+  const helium = s.show_price && product.helium_price_kurus !== null && product.helium_price_kurus !== undefined ? product.helium_price_kurus : null;
+  const priceLines = helium === null ? 1.1 : 1.1 + HELIUM_SCALE * 1.15;
+  const needed = (s.show_name ? 2 * namePx * 1.15 : 0) + (s.show_price ? pricePx * priceLines : 0);
   if (needed > textSpace) {
     const scale = textSpace / needed;
     const minPx = MIN_FONT_PT * DOTS_PER_PT;
     namePx = Math.max(minPx, namePx * scale);
     pricePx = Math.max(minPx, pricePx * scale);
-    const minNeeded = (s.show_name ? 2 * minPx * 1.15 : 0) + (s.show_price ? minPx * 1.1 : 0);
+    const minNeeded = (s.show_name ? 2 * minPx * 1.15 : 0) + (s.show_price ? minPx * priceLines : 0);
     warnings.push(
       textSpace < minNeeded
         ? "Yazılar için yer çok az. Barkod yüksekliğini azaltın veya etiketi büyütün."
@@ -154,9 +161,15 @@ export function renderLabel(product: LabelProduct, s: Settings): RenderedLabel {
   }
   if (s.show_price) {
     ctx.font = `bold ${pricePx}px ${FONT}`;
-    // Centre the price in the space between the name and the barcode.
-    const free = barcodeTop - gap - y;
-    ctx.fillText(formatMoney(product.price_kurus), centerX, y + Math.max(0, (free - pricePx) / 2));
+    // Centre the price (and the helium line) in the space between the name and the barcode.
+    const heliumPx = Math.max(MIN_FONT_PT * DOTS_PER_PT, pricePx * HELIUM_SCALE);
+    const block = pricePx + (helium === null ? 0 : heliumPx * 1.15);
+    const top = y + Math.max(0, (barcodeTop - gap - y - block) / 2);
+    ctx.fillText(formatMoney(product.price_kurus), centerX, top);
+    if (helium !== null) {
+      ctx.font = `bold ${heliumPx}px ${FONT}`;
+      ctx.fillText(`Helyumlu ${formatMoney(helium)}`, centerX, top + pricePx * 1.1, innerW);
+    }
   }
   ctx.drawImage(barcode, Math.round((width - barcode.width) / 2), barcodeTop);
 

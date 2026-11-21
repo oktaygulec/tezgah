@@ -1,4 +1,4 @@
-// Siparişler: orders of a day, newest first; click an order to see its lines or cancel it.
+// Satışlar (was Siparişler): orders of a day, newest first; click an order to see its lines or cancel it.
 
 import { formatMoney } from "../../shared/money";
 import { formatDateTime, istanbulDay } from "../../shared/time";
@@ -83,7 +83,7 @@ export function createOrdersScreen(): Screen {
           h(
             "tr",
             {},
-            h("td", {}, l.name, h("div", { class: "muted small" }, l.barcode)),
+            h("td", {}, l.name, l.helium === 1 && h("span", { class: "badge-helium" }, "Helyumlu"), h("div", { class: "muted small" }, l.barcode)),
             h("td", { class: "num" }, formatMoney(l.unit_price_kurus)),
             h("td", { class: "num" }, l.quantity),
             h("td", { class: "num" }, formatMoney(l.line_total_kurus)),
@@ -139,5 +139,5 @@ export function createOrdersScreen(): Screen {
     detail,
   );
 
-  return { id: "siparisler", el, show: () => run(load) };
+  return { id: "satislar", el, show: () => run(load) };
 }

@@ -46,6 +46,15 @@ HTML import in `src/server/main.ts`. The UI uses system fonts, so there are no f
   show the rest as `unknown_cost_revenue_kurus`.
 - Reports (`src/server/reports.ts`, `src/shared/report.ts`): Istanbul calendar days, Monday-start weeks,
   cancelled orders left out. Breakdown rows are hours (day), days (week, month) or months (year).
+- Categories (1.5): `categories(name, helium_pricing)`. The first start with this table adds `Balon`
+  (helium pricing) and `Diğer`. A product in a helium category must have `helium_price_kurus`; any other
+  product has NULL there. Turning helium pricing off for a category clears the helium price of its
+  products. An order line with `helium: true` is priced at the helium price and stored with `helium = 1`.
+- Favorites and photos (1.5): `products.favorite` (0/1) fills the "Ürün seç" dialog of Satış. Photos
+  are shrunk in the browser to at most 600 px JPEG and stored as BLOBs in `product_images`, so the
+  normal database backups include them. `products.image_at` versions the photo URL for caching.
+- UI (1.5): 7 main tabs; Yönetim shows a second row (Ürünler, Kategoriler, Etiket, Raporlar). The CSV
+  import and export buttons are hidden; the API endpoints still work.
 - Order numbers never repeat: a counter table keeps the highest number, also after a delete.
 - Money is integer kuruş. Timestamps are ISO 8601 UTC, shown in `Europe/Istanbul`.
 
@@ -105,7 +114,9 @@ src/server/      main.ts (start-up, port loop), routes.ts (JSON API), db.ts (SQL
                  reports.ts (sales report, low stock)
 src/web/         index.html, app.ts (tabs), api.ts, ui.ts (DOM helpers, dialogs, scan focus),
                  label.ts (label drawing), productForm.ts, stockDialog.ts, search.ts, state.ts, updater.ts,
-                 screens/ (sale, price, products, stockIn, lowStock, labels, orders, reports, settings), styles.css, print.css
+                 image.ts (photo shrink, thumbnails),
+                 screens/ (sale, price = Ürün Sorgula, orders = Satışlar, stockIn, lowStock, products, categories,
+                 labels, reports, settings), styles.css, print.css
 src/shared/      barcode.ts, money.ts, order.ts, csv.ts, report.ts, stock.ts, time.ts, tspl.ts, types.ts, validate.ts
 tests/           bun test files
 scripts/build.ts builds both executables
@@ -119,6 +130,10 @@ scripts/build.ts builds both executables
 | `GET/POST /api/products` | list all / create (optional `stock_qty` = starting stock) |
 | `PUT/DELETE /api/products/:id` | update / delete (409 when the product is on an order) |
 | `GET /api/products/by-barcode/:barcode` | look up (404 when unknown) |
+| `PUT /api/products/:id/favorite` | `{ favorite: boolean }` |
+| `GET/PUT/DELETE /api/products/:id/image` | photo: read / upload raw JPEG, PNG or WebP body (max 2 MB) / remove |
+| `GET/POST /api/categories` | list (with `product_count`) / create `{ name, helium_pricing }` |
+| `PUT/DELETE /api/categories/:id` | update / delete (409 when the category has products) |
 | `POST /api/products/import` | CSV text body `barkod;ad;fiyat[;stok[;alis_fiyati]]`; known barcodes are updated; empty optional cells keep the saved value |
 | `GET /api/products/export` | CSV download `barkod;ad;fiyat;stok;alis_fiyati` (UTF-8 with BOM) |
 | `GET/POST /api/products/:id/stock` | stock history (newest first) / `{ mode: add\|remove\|set, quantity, note }` |
@@ -126,7 +141,7 @@ scripts/build.ts builds both executables
 | `GET /api/reports/sales?period=day\|week\|month\|year&date=YYYY-MM-DD` | totals, previous-period totals, breakdown, products sold, unsold products, stock value |
 | `POST /api/stock/receive` | goods in: `{ lines: [{ product_id, quantity }], note }`, one transaction |
 | `GET /api/barcode/next` | next free in-store EAN-13 (`2` + 11-digit sequence + check digit) |
-| `GET/POST /api/orders` | list (`?day=YYYY-MM-DD`, Istanbul day; no day = latest 200) / create |
+| `GET/POST /api/orders` | list (`?day=YYYY-MM-DD`, Istanbul day; no day = latest 200) / create (`lines[].helium` for the helium price) |
 | `GET/DELETE /api/orders/:id` | order with lines / delete (only a cancelled order) |
 | `POST /api/orders/:id/cancel` | cancel a saved order (kept, left out of totals) |
 | `GET/PUT /api/settings` | label and shop settings |

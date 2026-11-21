@@ -1,8 +1,11 @@
-// Ürünler: search, add, edit, delete, stock, CSV import and export.
+// Ürünler (under Yönetim): search, filter by category, add, edit, delete, stock, favorites.
+// CSV import and export still work but their buttons are hidden for now.
 
 import { formatMoney } from "../../shared/money";
 import type { ImportResult, Product } from "../../shared/types";
 import { api } from "../api";
+import { thumbnail } from "../image";
+import { categoryOf, getCategories, loadCategories } from "../state";
 import { openProductForm } from "../productForm";
 import { confirmDialog, h, run, toast, type Screen } from "../ui";
 import { matchesSearch, sortByName } from "../search";
@@ -18,6 +21,10 @@ export function createProductsScreen(): Screen {
   search.addEventListener("input", render);
   const outOfStock = h("input", { type: "checkbox" });
   outOfStock.addEventListener("change", render);
+  const favoritesOnly = h("input", { type: "checkbox" });
+  favoritesOnly.addEventListener("change", render);
+  const categoryFilter = h("select", { class: "input input-auto" });
+  categoryFilter.addEventListener("change", render);
   const tbody = h("tbody");
   const info = h("div", { class: "muted" });
   const importReport = h("div", { class: "import-report", hidden: true });
@@ -25,7 +32,32 @@ export function createProductsScreen(): Screen {
   fileInput.addEventListener("change", () => run(importFile));
 
   async function load() {
-    products = sortByName(await api.products());
+    const [list] = await Promise.all([api.products(), loadCategories()]);
+    products = sortByName(list);
+    fillCategoryFilter();
+    render();
+  }
+
+  const ALL = "all";
+  const NONE = "none";
+  function fillCategoryFilter() {
+    const current = categoryFilter.value || ALL;
+    categoryFilter.replaceChildren(
+      h("option", { value: ALL }, "Tüm kategoriler"),
+      ...getCategories().map((c) => h("option", { value: String(c.id) }, c.name)),
+      h("option", { value: NONE }, "Kategorisi olmayanlar"),
+    );
+    categoryFilter.value = [...categoryFilter.options].some((o) => o.value === current) ? current : ALL;
+  }
+
+  function inCategory(p: Product) {
+    const v = categoryFilter.value;
+    return v === ALL || !v ? true : v === NONE ? p.category_id === null : p.category_id === Number(v);
+  }
+
+  async function toggleFavorite(product: Product) {
+    const updated = await api.setFavorite(product.id, product.favorite !== 1);
+    products = products.map((p) => (p.id === updated.id ? updated : p));
     render();
   }
 
@@ -77,17 +109,39 @@ export function createProductsScreen(): Screen {
   }
 
   function render() {
-    const found = products.filter((p) => matchesSearch(p, search.value) && (!outOfStock.checked || p.stock_qty <= 0));
+    const found = products.filter(
+      (p) => matchesSearch(p, search.value) && (!outOfStock.checked || p.stock_qty <= 0) && (!favoritesOnly.checked || p.favorite === 1) && inCategory(p),
+    );
     const shown = found.slice(0, MAX_ROWS);
     tbody.replaceChildren(
       ...shown.map((p) =>
         h(
           "tr",
           {},
+          h(
+            "td",
+            { class: "col-fav" },
+            h(
+              "button",
+              {
+                class: `btn-star${p.favorite ? " on" : ""}`,
+                title: p.favorite ? "Favorilerden çıkar" : "Favorilere ekle",
+                "aria-pressed": p.favorite ? "true" : "false",
+                onclick: () => run(() => toggleFavorite(p)),
+              },
+              p.favorite ? "★" : "☆",
+            ),
+          ),
+          h("td", { class: "col-thumb" }, thumbnail(p)),
           h("td", { class: "mono" }, p.barcode),
-          h("td", {}, p.name),
+          h("td", {}, p.name, categoryOf(p.category_id) && h("div", { class: "muted small" }, categoryOf(p.category_id)!.name)),
           h("td", { class: "num muted" }, p.cost_kurus === null ? "–" : formatMoney(p.cost_kurus)),
-          h("td", { class: "num strong" }, formatMoney(p.price_kurus)),
+          h(
+            "td",
+            { class: "num strong" },
+            formatMoney(p.price_kurus),
+            p.helium_price_kurus !== null && h("div", { class: "small helium-price" }, `Helyumlu ${formatMoney(p.helium_price_kurus)}`),
+          ),
           h("td", { class: `num strong${p.stock_qty <= 0 ? " stock-low" : ""}` }, p.stock_qty),
           h(
             "td",
@@ -103,7 +157,7 @@ export function createProductsScreen(): Screen {
                   location.hash = "#etiket";
                 },
               },
-              "Bu ürünü etiketle",
+              "Barkod yazdır",
             ),
             h("button", { class: "btn btn-danger-outline", onclick: () => run(() => remove(p)) }, "Sil"),
           ),
@@ -111,12 +165,12 @@ export function createProductsScreen(): Screen {
       ),
     );
     if (shown.length === 0) {
-      tbody.append(h("tr", {}, h("td", { colSpan: 6, class: "empty" }, products.length ? "Aramaya uyan ürün yok." : "Henüz ürün yok. \"Yeni Ürün\" ile ekleyin.")));
+      tbody.append(h("tr", {}, h("td", { colSpan: 8, class: "empty" }, products.length ? "Aramaya uyan ürün yok." : "Henüz ürün yok. \"Yeni Ürün\" ile ekleyin.")));
     }
     info.textContent =
       found.length > MAX_ROWS
         ? `${found.length} ürün bulundu, ilk ${MAX_ROWS} tanesi gösteriliyor. Aramayı daraltın.`
-        : `${found.length} / ${products.length} ürün` + (outOfStock.checked ? " (stoğu bitenler)" : "");
+        : `${found.length} / ${products.length} ürün`;
   }
 
   const el = h(
@@ -126,10 +180,13 @@ export function createProductsScreen(): Screen {
       "div",
       { class: "toolbar" },
       search,
+      categoryFilter,
+      h("label", { class: "check" }, favoritesOnly, " Favoriler"),
       h("label", { class: "check" }, outOfStock, " Stoğu bitenler"),
       h("button", { class: "btn btn-primary", onclick: () => run(add) }, "Yeni Ürün"),
-      h("button", { class: "btn", onclick: () => fileInput.click() }, "CSV İçe Aktar"),
-      h("a", { class: "btn", href: "/api/products/export", download: "urunler.csv" }, "CSV Dışa Aktar"),
+      // CSV buttons are hidden for now; remove "hidden" to show them again.
+      h("button", { class: "btn", hidden: true, onclick: () => fileInput.click() }, "CSV İçe Aktar"),
+      h("a", { class: "btn", hidden: true, href: "/api/products/export", download: "urunler.csv" }, "CSV Dışa Aktar"),
       fileInput,
     ),
     importReport,
@@ -140,7 +197,7 @@ export function createProductsScreen(): Screen {
       h(
         "table",
         { class: "table" },
-        h("thead", {}, h("tr", {}, h("th", {}, "Barkod"), h("th", {}, "Ad"), h("th", { class: "num" }, "Alış"), h("th", { class: "num" }, "Satış"), h("th", { class: "num" }, "Stok"), h("th", {}, ""))),
+        h("thead", {}, h("tr", {}, h("th", { title: "Favori" }, "★"), h("th", {}, ""), h("th", {}, "Barkod"), h("th", {}, "Ad"), h("th", { class: "num" }, "Alış"), h("th", { class: "num" }, "Satış"), h("th", { class: "num" }, "Stok"), h("th", {}, ""))),
         tbody,
       ),
     ),

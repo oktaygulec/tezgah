@@ -22,44 +22,74 @@ Veriler `Tezgah.exe` ile aynı klasördeki `data` klasöründe durur.
 
 Bu uyarı bir kez çıkar.
 
+## Sekmeler
+
+Üstte 7 sekme vardır: **Satış**, **Ürün Sorgula**, **Satışlar**, **Stok Girişi**, **Azalan Stok**, **Yönetim** ve **Ayarlar**.
+
+**Yönetim** sekmesi ikinci bir satır açar: **Ürünler**, **Kategoriler**, **Etiket** ve **Raporlar**.
+
 ## Barkod okutma
 
 Barkod okuyucu, barkodu yazar ve Enter tuşuna basar.
 
-- **Satış** ve **Fiyat Gör** ekranlarında okutma kutusu her zaman hazırdır. Önce tıklamanız gerekmez.
+- **Satış** ve **Ürün Sorgula** ekranlarında okutma kutusu her zaman hazırdır. Önce tıklamanız gerekmez.
 - Ürün formunda barkod kutusuna okutursanız barkod kutuya yazılır.
 
 ## Satış
 
 1. **Satış** sekmesini açın.
 2. Ürünleri okutun. Aynı ürünü tekrar okutursanız adet 1 artar.
+   Barkodu okutmadan eklemek için **Ürün seç** düğmesine basın. Favori ürünler kategorilere göre listelenir. Ürüne tıklayın.
 3. Adedi **−** ve **+** düğmeleriyle değiştirin. Satırı silmek için **Kaldır** düğmesine basın.
 4. **Siparişi Tamamla** düğmesine basın. Sipariş numarası ekranda görünür.
 
 Siparişi silmek için **Siparişi İptal Et** düğmesine basın ve onaylayın.
 
+### Balon satışı (boş / helyumlu)
+
+Balon kategorisindeki bir ürünün satırında **Helyumlu** kutusu vardır.
+
+1. Balonu okutun. Satır boş balon fiyatıyla eklenir.
+2. Balon helyumla satılıyorsa satırdaki **Helyumlu** kutusunu işaretleyin. Fiyat helyumlu fiyata geçer.
+
+**Ürün seç** penceresinde balonun iki düğmesi vardır: **Boş** ve **Helyumlu**. İstediğinize tıklayın.
+
 Ürün kayıtlı değilse kısa bir uyarı sesi çıkar. Ekranda "Ürün bulunamadı" yazar. **Ürün Ekle** ile ürünü hemen kaydedebilirsiniz.
 
 Sayfa yenilenirse yarım kalan sipariş kaybolmaz.
 
-## Fiyat Gör
+## Ürün Sorgula
 
-Ürünü okutun. Ürün adı ve fiyatı büyük yazıyla görünür. Bu ekran siparişe bir şey eklemez.
+Ürünü okutun. Ürünün fotoğrafı, adı, fiyatı ve stoğu büyük yazıyla görünür. Balonda boş ve helyumlu fiyat yan yana görünür. Bu ekran siparişe bir şey eklemez.
 
 ## Ürünler
 
+**Yönetim → Ürünler** ekranını açın.
+
 - **Yeni Ürün**: barkod, ad ve satış fiyatı girin. Fiyatı `12,50` veya `12.50` olarak yazabilirsiniz.
-- **Alış fiyatı** isteğe bağlıdır. Girerseniz form adet başı kârı gösterir. Raporlar kârı bu fiyatla hesaplar. Alış fiyatı etikette ve Fiyat Gör ekranında görünmez.
+- **Kategori** seçin. **Balon** kategorisi seçilirse form iki fiyat sorar: **Boş satış fiyatı** ve **Helyumlu satış fiyatı**.
+- **Alış fiyatı** isteğe bağlıdır. Girerseniz form adet başı kârı gösterir. Raporlar kârı bu fiyatla hesaplar. Alış fiyatı etikette ve Ürün Sorgula ekranında görünmez.
+- **Fotoğraf** isteğe bağlıdır. **Fotoğraf seç** ile bilgisayardan bir resim seçin. Program resmi küçültüp kaydeder.
+- **Favori** kutusunu işaretlerseniz ürün Satış ekranındaki **Ürün seç** listesinde görünür. Listedeki **☆** işaretine tıklayarak da favori ekleyip çıkarabilirsiniz.
+- Listeyi kategoriye göre süzmek için kategori kutusunu kullanın. Sadece favorileri görmek için **Favoriler** kutusunu işaretleyin.
 - Ürünün barkodu yoksa **Barkod oluştur** düğmesine basın. Program dükkana özel bir barkod verir.
 - Barkod başka bir üründe kayıtlıysa form hemen uyarır ve o ürünün adını gösterir. Bu durumda ürün kaydedilmez. **Mevcut ürünü düzenle** düğmesi kayıtlı ürünü açar.
 - Hatalı bir alan kırmızı olur. Alanın altında ne yapmanız gerektiği yazar.
 - **Düzenle** ve **Sil** düğmeleri her satırdadır. Siparişte kullanılmış bir ürün silinemez.
-- **CSV İçe Aktar**: `barkod;ad;fiyat`, `barkod;ad;fiyat;stok` veya `barkod;ad;fiyat;stok;alis_fiyati` biçiminde bir dosya seçin. Boş bırakılan stok veya alış fiyatı hücresi kayıtlı değeri değiştirmez. Hatalı satırlar ekranda listelenir.
-- **CSV Dışa Aktar**: tüm ürünleri Excel ile açılabilen bir dosyaya kaydeder.
+- **CSV İçe Aktar** ve **CSV Dışa Aktar** düğmeleri şimdilik gizlidir.
+
+## Kategoriler
+
+**Yönetim → Kategoriler** ekranı kategorileri listeler. İlk açılışta iki kategori vardır: **Balon** ve **Diğer**.
+
+- **Yeni Kategori** ile kategori ekleyin.
+- **Boş ve helyumlu olarak iki satış fiyatı var** kutusu açık olan kategorinin ürünleri iki fiyatlıdır. Balon kategorisinde bu kutu açıktır.
+- Bu kutuyu kapatırsanız o kategorideki ürünlerin helyumlu fiyatı silinir. Program önce sorar.
+- İçinde ürün olan kategori silinemez.
 
 ## Stok
 
-Her ürünün stoğu adet olarak tutulur. Stok **Ürünler** listesinde **Stok** sütununda görünür. Stoğu 0 veya daha az olan ürün kırmızı görünür. **Fiyat Gör** ekranı da stoğu gösterir.
+Her ürünün stoğu adet olarak tutulur. Stok **Ürünler** listesinde **Stok** sütununda görünür. Stoğu 0 veya daha az olan ürün kırmızı görünür. **Ürün Sorgula** ekranı da stoğu gösterir.
 
 - Satış tamamlanınca satılan adetler stoktan düşer.
 - Satış stok yetersiz olsa da yapılır. Bu durumda stok eksiye düşer. Sayım ile düzeltin.
@@ -72,7 +102,8 @@ Her ürünün stoğu adet olarak tutulur. Stok **Ürünler** listesinde **Stok**
 **Azalan Stok** sekmesi stoğu 5 veya daha az olan ürünleri gösterir. En az stoklu ürün en üsttedir. **Son 30 günde satılan** sütunu ne kadar sipariş vermeniz gerektiğini tahmin etmenize yardım eder.
 
 - **Sipariş listesi indir (CSV)** düğmesi listeyi tedarikçiye göndermek için bir dosyaya kaydeder.
-- Sınırı (5) **Ayarlar → Stok → Azalan stok sınırı** ile değiştirebilirsiniz.
+- Sınırı (5) **Ayarlar → Genel → Azalan stok sınırı** ile değiştirebilirsiniz.
+- Bu ekran alış fiyatını göstermez.
 
 ### Mal girişi (okutarak)
 
@@ -98,7 +129,7 @@ Aynı pencerede **Stok geçmişi** görünür: her satış, iptal, giriş ve say
 
 ### CSV ile stok
 
-CSV dosyasına 4. sütun olarak `stok` ekleyebilirsiniz: `barkod;ad;fiyat;stok`. Bu sütunda değer olan ürünün stoğu o değere ayarlanır. Değer boşsa stok değişmez. **CSV Dışa Aktar** stok sütununu da yazar.
+CSV düğmeleri şimdilik gizlidir. Stoğu **Stok Girişi** ekranından veya ürünün **Stok** düğmesinden değiştirin.
 
 ## Yazıcıyı ayarlama (bir kez yapılır)
 
@@ -121,7 +152,7 @@ Bu yöntem TSPL dilini anlayan termal yazıcılar içindir (Xprinter, TSC ve ben
 
 ## Raporlar
 
-1. **Raporlar** sekmesini açın.
+1. **Yönetim → Raporlar** ekranını açın.
 2. Dönemi seçin: **Gün**, **Hafta**, **Ay** veya **Yıl**.
 3. Tarihi seçin. **◀** ve **▶** düğmeleri önceki ve sonraki döneme geçer.
 
@@ -139,18 +170,20 @@ Kâr, satış anındaki alış fiyatıyla hesaplanır. Alış fiyatı girilmemi�
 
 ## Etiket yazdırma
 
-1. **Etiket** sekmesini açın. Ya da **Ürünler** ekranında **Bu ürünü etiketle** düğmesine basın.
+1. **Yönetim → Etiket** ekranını açın. Ya da **Ürünler** ekranında ürünün **Barkod yazdır** düğmesine basın.
 2. Etiketlenecek ürünlerin kutusunu işaretleyin.
 3. Her ürün için kaç etiket istediğinizi yazın.
 4. **Yazdır** düğmesine basın.
 
 Etiketler hemen yazıcıdan çıkar. Önizleme, yazıcıdan çıkacak etiketin aynısıdır.
 
+Balon etiketinde fiyatın altında küçük bir satır daha vardır: **Helyumlu** fiyat.
+
 **Tarayıcı ile yazdır** düğmesi tarayıcının yazdırma penceresini açar. Bu düğmeyi yalnızca doğrudan yazdırma çalışmazsa kullanın. Pencerede kağıt boyutunu etiket ölçüsüne ayarlayın. Kenar boşluklarını **Yok**, ölçeği **100** yapın.
 
-## Siparişler
+## Satışlar
 
-**Siparişler** ekranı seçilen günün siparişlerini gösterir. En yeni sipariş en üsttedir. Satırları görmek için siparişe tıklayın.
+**Satışlar** ekranı seçilen günün siparişlerini gösterir. Bu ekranın eski adı **Siparişler** idi. En yeni sipariş en üsttedir. Satırları görmek için siparişe tıklayın.
 
 ### Siparişi iptal etme
 
@@ -158,6 +191,8 @@ Etiketler hemen yazıcıdan çıkar. Önizleme, yazıcıdan çıkacak etiketin a
 2. **Siparişi İptal Et** düğmesine basın ve onaylayın.
 
 İptal edilen sipariş listede **İPTAL** olarak kalır. Günün toplamına eklenmez.
+
+Helyumla satılan balonun satırında **Helyumlu** yazar.
 
 ### Siparişi silme
 
@@ -183,7 +218,7 @@ Güncelleme sırasında siyah pencereyi kapatmayın.
 
 ## Yedekleme
 
-Program her açılışta `data\backups` klasörüne bir yedek alır. Son 30 yedek saklanır.
+Program her açılışta `data\backups` klasörüne bir yedek alır. Son 30 yedek saklanır. Ürün fotoğrafları veritabanının içindedir; yedeğe dahildir.
 
 Kendi yedeğinizi almak için:
 

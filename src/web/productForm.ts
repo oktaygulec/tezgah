@@ -1,14 +1,17 @@
 // Add / edit product dialog, used by Ürünler and by Satış for unknown barcodes.
+// A category with helium pricing (Balon) shows a second sale price. The photo is optional.
 // Each field shows its own error. A barcode that another product already uses is reported
 // while typing or scanning, and the user can open that product instead.
 
 import { ean13Warning } from "../shared/barcode";
 import { formatMoney, formatMoneyPlain, parseMoney } from "../shared/money";
-import type { Product } from "../shared/types";
+import { productImageUrl, type Product } from "../shared/types";
 import { parseQuantity, stockQuantityError } from "../shared/stock";
-import { barcodeError, costTextError, MAX_BARCODE_LENGTH, MAX_NAME_LENGTH, nameError, priceTextError } from "../shared/validate";
+import { barcodeError, costTextError, heliumTextError, MAX_BARCODE_LENGTH, MAX_NAME_LENGTH, nameError, priceTextError } from "../shared/validate";
 import { api, findProduct } from "./api";
-import { errorMessage, h, openDialog } from "./ui";
+import { shrinkImage } from "./image";
+import { categoryOf, getCategories } from "./state";
+import { errorMessage, h, openDialog, toast } from "./ui";
 
 type FormResult = { saved: Product } | { editInstead: Product };
 
@@ -59,6 +62,21 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
       placeholder: "Bilinmiyorsa boş bırakın",
       value: product && product.cost_kurus !== null ? formatMoneyPlain(product.cost_kurus) : "",
     });
+    const helium = h("input", {
+      class: "input",
+      name: "helium",
+      inputMode: "decimal",
+      autocomplete: "off",
+      placeholder: "40,00",
+      value: product && product.helium_price_kurus !== null ? formatMoneyPlain(product.helium_price_kurus) : "",
+    });
+    const category = h(
+      "select",
+      { class: "input", name: "category" },
+      h("option", { value: "" }, "Kategori yok"),
+      ...getCategories().map((c) => h("option", { value: String(c.id), selected: c.id === product?.category_id }, c.name + (c.helium_pricing ? " (boş / helyumlu fiyat)" : ""))),
+    );
+    const favorite = h("input", { type: "checkbox", checked: product?.favorite === 1 });
     const profitInfo = h("div", { class: "field-info" });
     const formError = h("div", { class: "form-error", role: "alert" });
     const saveButton = h("button", { type: "submit", class: "btn btn-primary" }, "Kaydet");
@@ -68,6 +86,70 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
     const barcodeField = field("Barkod", h("div", { class: "row" }, barcode, generate), duplicateBox);
     const nameField = field("Ürün adı", name);
     const priceField = field("Satış fiyatı (₺)", price);
+    const heliumField = field("Helyumlu satış fiyatı (₺)", helium);
+    const categoryField = field("Kategori", category);
+    const priceLabel = priceField.wrap.querySelector("span")!;
+    /** True when the chosen category has two prices (empty / with helium). */
+    const heliumOn = () => !!categoryOf(category.value ? Number(category.value) : null)?.helium_pricing;
+    function showHelium() {
+      heliumField.wrap.hidden = !heliumOn();
+      priceLabel.textContent = heliumOn() ? "Boş satış fiyatı (₺)" : "Satış fiyatı (₺)";
+    }
+    category.addEventListener("change", () => {
+      showHelium();
+      checkHelium();
+      checkCost();
+    });
+
+    // Photo: chosen here, uploaded after the product is saved.
+    let photo: Blob | null = null; // new photo to upload
+    let removePhoto = false;
+    let photoUrl: string | null = product ? productImageUrl(product) : null;
+    const photoBox = h("div", { class: "photo-box" });
+    const photoInput = h("input", { type: "file", accept: "image/*", hidden: true });
+    const photoError = h("div", { class: "field-error", role: "alert" });
+    photoInput.addEventListener("change", async () => {
+      const file = photoInput.files?.[0];
+      photoInput.value = "";
+      if (!file) return;
+      photoError.textContent = "";
+      try {
+        photo = await shrinkImage(file);
+        removePhoto = false;
+        if (photoUrl?.startsWith("blob:")) URL.revokeObjectURL(photoUrl);
+        photoUrl = URL.createObjectURL(photo);
+        renderPhoto();
+      } catch (e) {
+        photoError.textContent = errorMessage(e);
+      }
+    });
+    function renderPhoto() {
+      photoBox.replaceChildren(
+        photoUrl ? h("img", { class: "photo-preview", src: photoUrl, alt: "Ürün fotoğrafı" }) : h("div", { class: "photo-preview photo-none" }, "Fotoğraf yok"),
+        h(
+          "div",
+          { class: "row" },
+          h("button", { type: "button", class: "btn", onclick: () => photoInput.click() }, photoUrl ? "Değiştir" : "Fotoğraf seç"),
+          photoUrl &&
+            h(
+              "button",
+              {
+                type: "button",
+                class: "btn btn-danger-outline",
+                onclick: () => {
+                  if (photoUrl?.startsWith("blob:")) URL.revokeObjectURL(photoUrl);
+                  photo = null;
+                  photoUrl = null;
+                  removePhoto = !!product?.image_at;
+                  renderPhoto();
+                },
+              },
+              "Kaldır",
+            ),
+        ),
+      );
+    }
+    renderPhoto();
     const costField = field("Alış fiyatı (₺, isteğe bağlı)", cost, profitInfo);
     const stockField = field("Başlangıç stoğu (adet, isteğe bağlı)", stock);
 
@@ -91,6 +173,7 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
       return show(barcodeField, barcode, barcodeError(code) ?? (duplicate ? `Bu barkod başka bir üründe kayıtlı.` : null));
     }
     const checkName = () => show(nameField, name, nameError(name.value.trim()));
+    const checkHelium = () => show(heliumField, helium, heliumOn() ? heliumTextError(helium.value) : null);
     function checkPrice() {
       const error = priceTextError(price.value);
       priceField.hint.textContent = !error && parseMoney(price.value) === 0 ? "Fiyat ₺0,00. Doğru mu?" : "";
@@ -109,13 +192,16 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
       costField.hint.textContent = "";
       if (!error && sale !== null && buy !== null) {
         const profit = sale - buy;
+        const pct = (p: number, of: number) => (of > 0 ? ` (%${((p / of) * 100).toFixed(1).replace(".", ",")})` : "");
         if (profit < 0) costField.hint.textContent = `Alış fiyatı satış fiyatından yüksek: her satışta ${formatMoney(-profit)} zarar.`;
-        else profitInfo.textContent = `Adet başı kâr: ${formatMoney(profit)}` + (sale > 0 ? ` (%${((profit / sale) * 100).toFixed(1).replace(".", ",")})` : "");
+        else profitInfo.textContent = `Adet başı kâr${heliumOn() ? " (boş)" : ""}: ${formatMoney(profit)}${pct(profit, sale)}`;
+        const withHelium = heliumOn() && !heliumTextError(helium.value) ? parseMoney(helium.value) : null;
+        if (withHelium !== null) profitInfo.textContent += ` · helyumlu: ${formatMoney(withHelium - buy)}${pct(withHelium - buy, withHelium)}`;
       }
       return error;
     }
-    const inputs = [barcode, name, price, cost, stock];
-    const checkAll = () => [checkBarcode(), checkName(), checkPrice(), checkCost(), checkStock()];
+    const inputs = [barcode, name, price, helium, cost, stock];
+    const checkAll = () => [checkBarcode(), checkName(), checkPrice(), checkHelium(), checkCost(), checkStock()];
 
     function renderDuplicate() {
       duplicateBox.hidden = !duplicate;
@@ -160,6 +246,10 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
       checkCost();
     });
     cost.addEventListener("input", checkCost);
+    helium.addEventListener("input", () => {
+      checkHelium();
+      checkCost();
+    });
     stock.addEventListener("input", checkStock);
     for (const input of inputs) {
       input.addEventListener("blur", () => {
@@ -201,7 +291,7 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
     const form = h(
       "form",
       {
-        class: "form",
+        class: "form product-form",
         novalidate: true,
         onsubmit: async (e: Event) => {
           e.preventDefault();
@@ -220,23 +310,52 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
             name: name.value.trim(),
             price_kurus: parseMoney(price.value)!,
             cost_kurus: cost.value.trim() === "" ? null : parseMoney(cost.value)!,
+            category_id: category.value ? Number(category.value) : null,
+            helium_price_kurus: heliumOn() ? parseMoney(helium.value)! : null,
+            favorite: favorite.checked,
           };
           saveButton.disabled = true;
+          let saved: Product;
           try {
-            close({ saved: product ? await api.updateProduct(product.id, input) : await api.createProduct(input, stockValue()) });
+            saved = product ? await api.updateProduct(product.id, input) : await api.createProduct(input, stockValue());
           } catch (err) {
             formError.textContent = errorMessage(err);
-          } finally {
             saveButton.disabled = false;
+            return;
           }
+          // The product is saved; a photo error does not undo that.
+          try {
+            if (photo) saved = await api.uploadImage(saved.id, photo);
+            else if (removePhoto) saved = await api.deleteImage(saved.id);
+          } catch (err) {
+            toast(`Ürün kaydedildi, fotoğraf kaydedilemedi: ${errorMessage(err)}`, "error");
+          }
+          if (photoUrl?.startsWith("blob:")) URL.revokeObjectURL(photoUrl);
+          close({ saved });
         },
       },
       h("h2", {}, product ? "Ürünü Düzenle" : "Yeni Ürün"),
-      barcodeField.wrap,
-      nameField.wrap,
-      priceField.wrap,
-      costField.wrap,
-      !product && stockField.wrap,
+      h(
+        "div",
+        { class: "product-form-grid" },
+        h(
+          "div",
+          { class: "form-col" },
+          barcodeField.wrap,
+          nameField.wrap,
+          categoryField.wrap,
+          h("div", { class: "price-fields" }, priceField.wrap, heliumField.wrap),
+          costField.wrap,
+          !product && stockField.wrap,
+        ),
+        h(
+          "div",
+          { class: "form-col" },
+          h("div", { class: "field" }, h("span", {}, "Fotoğraf (isteğe bağlı)"), photoBox, photoError, photoInput),
+          h("label", { class: "check" }, favorite, " Favori"),
+          h("div", { class: "muted small" }, "Favori ürünler Satış ekranındaki \"Ürün seç\" listesinde görünür."),
+        ),
+      ),
       formError,
       h("div", { class: "dialog-actions" }, h("button", { type: "button", class: "btn", onclick: () => close(null) }, "Vazgeç"), saveButton),
     );
@@ -246,6 +365,7 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
       touched.add(barcode);
       void lookupBarcode();
     }
+    showHelium();
     if (product) checkCost(); // show the profit of a product with prices
     // Focus the first empty field once the dialog is open.
     setTimeout(() => (barcode.value ? (name.value ? price : name) : barcode).focus(), 0);
