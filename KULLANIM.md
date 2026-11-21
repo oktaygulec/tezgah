@@ -26,7 +26,7 @@ Bu uyarı bir kez çıkar.
 
 Üstte 7 sekme vardır: **Satış**, **Ürün Sorgula**, **Satışlar**, **Stok Girişi**, **Azalan Stok**, **Yönetim** ve **Ayarlar**.
 
-**Yönetim** sekmesi ikinci bir satır açar: **Ürünler**, **Kategoriler**, **Etiket** ve **Raporlar**.
+**Yönetim** sekmesi ikinci bir satır açar: **Ürünler**, **Toplu Fiyat**, **Kategoriler**, **Etiket** ve **Raporlar**.
 
 ## Barkod okutma
 
@@ -77,6 +77,25 @@ Sayfa yenilenirse yarım kalan sipariş kaybolmaz.
 - Hatalı bir alan kırmızı olur. Alanın altında ne yapmanız gerektiği yazar.
 - **Düzenle** ve **Sil** düğmeleri her satırdadır. Siparişte kullanılmış bir ürün silinemez.
 - **CSV İçe Aktar** ve **CSV Dışa Aktar** düğmeleri şimdilik gizlidir.
+
+## Toplu Fiyat
+
+**Yönetim → Toplu Fiyat** ekranı birçok ürünün fiyatını bir kerede değiştirir. Örnek: zam geldiğinde tüm balonlara %10 ekleyin.
+
+1. **Değişiklik** kutusundan birini seçin:
+   - **Yüzde artır** veya **Yüzde indir**: oranı yazın, örneğin `10` veya `7,5`.
+   - **Tutar ekle** veya **Tutar düş**: tutarı yazın, örneğin `2,50`.
+   - **Yeni fiyat ver**: seçili ürünlerin hepsine aynı fiyatı verir.
+2. İsterseniz yuvarlamayı seçin. Örnek: **1 TL'ye yukarı** seçilirse ₺16,13 fiyatı ₺17,00 olur.
+3. Hangi fiyatların değişeceğini işaretleyin: **Satış fiyatı**, **Helyumlu fiyat**, **Alış fiyatı**.
+4. Ürünleri seçin. Arama, kategori ve **Favoriler** kutusu listeyi süzer. Değişmeyecek ürünün işaretini kaldırın.
+5. Listede eski ve yeni fiyatı kontrol edin. Eski fiyatın üstü çizilidir, yeni fiyat mavidir.
+6. **Fiyatları Güncelle** düğmesine basın. Program önce sorar.
+
+- Bir fiyat eksiye düşecekse program uyarır ve kaydetmez. Değişikliği düzeltin veya o ürünün işaretini kaldırın.
+- Kaydettikten sonra **Etiketleri Yazdır** düğmesi fiyatı değişen ürünleri Etiket ekranında seçer. Raflardaki etiketleri yenileyin.
+- Yanlış bir değişikliği **Geri Al** düğmesi geri alır. Düğme ekranın üstündeki **Son toplu değişiklik** satırındadır. Toplu değişiklikten sonra elle değiştirdiğiniz fiyatlar olduğu gibi kalır.
+- Satış ekranında açık bir sepet varsa, sepette eski fiyat kalır. **Siparişi Tamamla**'ya basınca program siparişi kaydetmez. Program sepetteki fiyatları yeniler. Toplamı kontrol edip tekrar basın.
 
 ## Kategoriler
 

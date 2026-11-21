@@ -298,3 +298,28 @@ export interface SalesReport {
 export interface LowStockItem extends Product {
   sold_30d: number;
 }
+
+/** One bulk price change (Toplu Fiyat), kept so that it can be undone. */
+export interface PriceBatch {
+  id: number;
+  description: string;
+  created_at: string;
+  /** Set when the change was undone. */
+  undone_at: string | null;
+  /** Number of products whose prices changed. */
+  product_count: number;
+}
+
+export interface PriceBatchResult {
+  batch: PriceBatch;
+  /** Products whose prices changed (for printing new labels). */
+  product_ids: number[];
+}
+
+export interface PriceUndoResult {
+  /** Prices set back to the old value. */
+  restored: number;
+  /** Prices left as they are, because they were changed again after the bulk change. */
+  skipped: number;
+  product_ids: number[];
+}

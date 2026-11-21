@@ -315,3 +315,14 @@ button.fav-tile:hover { border-color: var(--primary); background: #eff6ff; }
 @media (max-width: 760px) { .product-form-grid { grid-template-columns: 1fr; } }
 .settings-card > .btn, .settings-card > .row { align-self: flex-start; }
 .settings-bar .muted { color: var(--warning); font-weight: 600; }
+
+/* ----- Toplu Fiyat ----- */
+.notice-info { background: #eff6ff; color: var(--primary-dark); border: 1px solid #bfdbfe; font-size: 16px; font-weight: 500; justify-content: space-between; }
+.bulk-rule { flex: none; display: flex; flex-direction: column; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; }
+.bulk-rule-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.col-check { width: 44px; }
+.col-check input { width: 22px; height: 22px; }
+.row-skipped td { color: var(--muted); background: #f9fafb; }
+.price-old { color: var(--muted); text-decoration: line-through; }
+.price-arrow { color: var(--muted); }
+.price-new { font-weight: 700; color: var(--primary); }

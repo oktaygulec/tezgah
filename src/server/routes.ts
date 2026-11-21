@@ -8,6 +8,7 @@ import { buildTspl, bytesPerRow } from "../shared/tspl";
 import type { PrintLabelInput } from "../shared/types";
 import { listPrinters, sendRaw } from "./printer";
 import * as stock from "./stock";
+import * as prices from "./prices";
 import { lowStock, salesReport } from "./reports";
 import { checkForUpdate, installUpdate, VERSION } from "./update";
 
@@ -132,6 +133,15 @@ export function apiRoutes(db: Database, hooks: AppHooks) {
     "/api/products/:id/stock": {
       GET: safe((req) => json(stock.listMovements(db, idParam(req.params.id)))),
       POST: safe(async (req) => json(stock.adjustStock(db, idParam(req.params.id), await readJson(req)))),
+    },
+    "/api/prices/bulk": {
+      POST: safe(async (req) => json(prices.applyPriceChanges(db, await readJson(req)), 201)),
+    },
+    "/api/prices/bulk/last": {
+      GET: safe(() => json(prices.lastPriceBatch(db))),
+    },
+    "/api/prices/bulk/:id/undo": {
+      POST: safe((req) => json(prices.undoPriceBatch(db, idParam(req.params.id)))),
     },
     "/api/stock/low": {
       GET: safe(() => json(lowStock(db, repo.getSettings(db).low_stock_threshold))),

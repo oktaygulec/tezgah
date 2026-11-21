@@ -88,6 +88,22 @@ CREATE TABLE IF NOT EXISTS stock_movements (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS stock_movements_product ON stock_movements(product_id, id);
+CREATE TABLE IF NOT EXISTS price_batches (
+  id INTEGER PRIMARY KEY,
+  description TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  undone_at TEXT
+);
+-- No foreign key to products: a deleted product only makes its old changes impossible to undo.
+CREATE TABLE IF NOT EXISTS price_changes (
+  id INTEGER PRIMARY KEY,
+  batch_id INTEGER NOT NULL REFERENCES price_batches(id),
+  product_id INTEGER NOT NULL,
+  field TEXT NOT NULL,
+  old_kurus INTEGER NOT NULL,
+  new_kurus INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS price_changes_batch ON price_changes(batch_id);
 CREATE TABLE IF NOT EXISTS counters (
   name TEXT PRIMARY KEY,
   value INTEGER NOT NULL

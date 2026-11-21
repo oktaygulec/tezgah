@@ -1,5 +1,5 @@
 // App shell: loads settings, builds the screens and switches tabs by URL hash.
-// Seven main tabs; Yönetim opens a second row with Ürünler, Kategoriler, Etiket and Raporlar.
+// Seven main tabs; Yönetim opens a second row with Ürünler, Toplu Fiyat, Kategoriler, Etiket and Raporlar.
 
 import { api } from "./api";
 import { createLabelsScreen } from "./screens/labels";
@@ -12,6 +12,7 @@ import { createStockInScreen } from "./screens/stockIn";
 import { createLowStockScreen } from "./screens/lowStock";
 import { createReportsScreen } from "./screens/reports";
 import { createCategoriesScreen } from "./screens/categories";
+import { createBulkPricesScreen } from "./screens/bulkPrices";
 import { loadCategories, onSettingsChange, setSettings } from "./state";
 import { errorMessage, run, setActiveScanInput, toast, type Screen } from "./ui";
 
@@ -25,6 +26,7 @@ const screens: Screen[] = [
   createStockInScreen(),
   createLowStockScreen(),
   createProductsScreen(),
+  createBulkPricesScreen(),
   createCategoriesScreen(),
   createLabelsScreen(),
   createReportsScreen(),
@@ -32,7 +34,7 @@ const screens: Screen[] = [
 ];
 
 /** Screens under the Yönetim tab, in sub-menu order. */
-const MANAGEMENT = ["urunler", "kategoriler", "etiket", "raporlar"];
+const MANAGEMENT = ["urunler", "toplu-fiyat", "kategoriler", "etiket", "raporlar"];
 let lastManagement = MANAGEMENT[0]!;
 
 const container = document.getElementById("screens")!;

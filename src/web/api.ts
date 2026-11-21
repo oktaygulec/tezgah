@@ -16,7 +16,11 @@ import type {
   PrinterList,
   PrintLabelInput,
   UpdateInfo,
+  PriceBatch,
+  PriceBatchResult,
+  PriceUndoResult,
 } from "../shared/types";
+import type { PriceChange } from "../shared/bulkPrice";
 import type { StockMode, StockMovement } from "../shared/stock";
 import type { PeriodKind } from "../shared/report";
 
@@ -71,6 +75,10 @@ export const api = {
   setFavorite: (id: number, favorite: boolean) => request<Product>("PUT", `/api/products/${id}/favorite`, { favorite }),
   uploadImage: (id: number, image: Blob) => request<Product>("PUT", `/api/products/${id}/image`, undefined, image),
   deleteImage: (id: number) => request<Product>("DELETE", `/api/products/${id}/image`),
+  applyPriceChanges: (changes: PriceChange[], description: string) =>
+    request<PriceBatchResult>("POST", "/api/prices/bulk", { changes, description }),
+  lastPriceBatch: () => request<PriceBatch | null>("GET", "/api/prices/bulk/last"),
+  undoPriceBatch: (id: number) => request<PriceUndoResult>("POST", `/api/prices/bulk/${id}/undo`),
   categories: () => request<Category[]>("GET", "/api/categories"),
   createCategory: (input: CategoryInput) => request<Category>("POST", "/api/categories", input),
   updateCategory: (id: number, input: CategoryInput) => request<Category>("PUT", `/api/categories/${id}`, input),

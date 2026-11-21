@@ -5,7 +5,8 @@ import { formatMoney } from "../../shared/money";
 import type { ImportResult, Product } from "../../shared/types";
 import { api } from "../api";
 import { thumbnail } from "../image";
-import { categoryOf, getCategories, loadCategories } from "../state";
+import { categoryFilter } from "../categoryFilter";
+import { categoryOf, loadCategories } from "../state";
 import { openProductForm } from "../productForm";
 import { confirmDialog, h, run, toast, type Screen } from "../ui";
 import { matchesSearch, sortByName } from "../search";
@@ -23,8 +24,7 @@ export function createProductsScreen(): Screen {
   outOfStock.addEventListener("change", render);
   const favoritesOnly = h("input", { type: "checkbox" });
   favoritesOnly.addEventListener("change", render);
-  const categoryFilter = h("select", { class: "input input-auto" });
-  categoryFilter.addEventListener("change", render);
+  const category = categoryFilter(render);
   const tbody = h("tbody");
   const info = h("div", { class: "muted" });
   const importReport = h("div", { class: "import-report", hidden: true });
@@ -34,25 +34,8 @@ export function createProductsScreen(): Screen {
   async function load() {
     const [list] = await Promise.all([api.products(), loadCategories()]);
     products = sortByName(list);
-    fillCategoryFilter();
+    category.fill();
     render();
-  }
-
-  const ALL = "all";
-  const NONE = "none";
-  function fillCategoryFilter() {
-    const current = categoryFilter.value || ALL;
-    categoryFilter.replaceChildren(
-      h("option", { value: ALL }, "Tüm kategoriler"),
-      ...getCategories().map((c) => h("option", { value: String(c.id) }, c.name)),
-      h("option", { value: NONE }, "Kategorisi olmayanlar"),
-    );
-    categoryFilter.value = [...categoryFilter.options].some((o) => o.value === current) ? current : ALL;
-  }
-
-  function inCategory(p: Product) {
-    const v = categoryFilter.value;
-    return v === ALL || !v ? true : v === NONE ? p.category_id === null : p.category_id === Number(v);
   }
 
   async function toggleFavorite(product: Product) {
@@ -110,7 +93,7 @@ export function createProductsScreen(): Screen {
 
   function render() {
     const found = products.filter(
-      (p) => matchesSearch(p, search.value) && (!outOfStock.checked || p.stock_qty <= 0) && (!favoritesOnly.checked || p.favorite === 1) && inCategory(p),
+      (p) => matchesSearch(p, search.value) && (!outOfStock.checked || p.stock_qty <= 0) && (!favoritesOnly.checked || p.favorite === 1) && category.matches(p),
     );
     const shown = found.slice(0, MAX_ROWS);
     tbody.replaceChildren(
@@ -180,7 +163,7 @@ export function createProductsScreen(): Screen {
       "div",
       { class: "toolbar" },
       search,
-      categoryFilter,
+      category.el,
       h("label", { class: "check" }, favoritesOnly, " Favoriler"),
       h("label", { class: "check" }, outOfStock, " Stoğu bitenler"),
       h("button", { class: "btn btn-primary", onclick: () => run(add) }, "Yeni Ürün"),
