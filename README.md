@@ -37,6 +37,10 @@ HTML import in `src/server/main.ts`. The UI uses system fonts, so there are no f
 - Data: `data/tezgah.db` beside the executable (in dev: the project folder). Created on first start.
 - Backup: every start writes `data/backups/tezgah-YYYYMMDD-HHmmss.db` (Istanbul time) with `VACUUM INTO`. The newest 30 are kept.
 - Port: 5757. If a Tezgah already answers `/api/health` there, the new copy opens the browser and exits. If another program uses the port, the next 10 ports are tried. The app connects to the port before it binds, because macOS accepted a second bind to the same port in testing.
+- Stock: `products.stock_qty` (whole pieces) plus a `stock_movements` history with a reason per row
+  (`initial`, `receive`, `remove`, `count`, `sale`, `sale_cancel`, `import`). A completed order lowers
+  the stock, a cancel gives it back, and a delete of a cancelled order changes nothing. Stock may go
+  below zero: a sale is never blocked.
 - Order numbers never repeat: a counter table keeps the highest number, also after a delete.
 - Money is integer kuruş. Timestamps are ISO 8601 UTC, shown in `Europe/Istanbul`.
 
@@ -92,11 +96,11 @@ For tests, `TEZGAH_UPDATE_URL` points the updater at another "latest release" JS
 ```
 src/server/      main.ts (start-up, port loop), routes.ts (JSON API), db.ts (SQLite schema + queries),
                  backup.ts, system.ts (data folder, browser open, port probes), update.ts (self-update),
-                 printer.ts (printer list, RAW print jobs)
+                 printer.ts (printer list, RAW print jobs), stock.ts (stock adjust, goods in, history)
 src/web/         index.html, app.ts (tabs), api.ts, ui.ts (DOM helpers, dialogs, scan focus),
-                 label.ts (label drawing), productForm.ts, search.ts, state.ts, updater.ts,
-                 screens/ (sale, price, products, labels, orders, settings), styles.css, print.css
-src/shared/      barcode.ts, money.ts, order.ts, csv.ts, time.ts, tspl.ts, types.ts
+                 label.ts (label drawing), productForm.ts, stockDialog.ts, search.ts, state.ts, updater.ts,
+                 screens/ (sale, price, products, stockIn, labels, orders, settings), styles.css, print.css
+src/shared/      barcode.ts, money.ts, order.ts, csv.ts, stock.ts, time.ts, tspl.ts, types.ts, validate.ts
 tests/           bun test files
 scripts/build.ts builds both executables
 ```
@@ -106,11 +110,13 @@ scripts/build.ts builds both executables
 | Method and path | Purpose |
 | --- | --- |
 | `GET /api/health` | `{ app: "tezgah", ok: true, version }` |
-| `GET/POST /api/products` | list all / create |
+| `GET/POST /api/products` | list all / create (optional `stock_qty` = starting stock) |
 | `PUT/DELETE /api/products/:id` | update / delete (409 when the product is on an order) |
 | `GET /api/products/by-barcode/:barcode` | look up (404 when unknown) |
-| `POST /api/products/import` | CSV text body `barkod;ad;fiyat`; known barcodes are updated |
-| `GET /api/products/export` | CSV download (UTF-8 with BOM) |
+| `POST /api/products/import` | CSV text body `barkod;ad;fiyat[;stok]`; known barcodes are updated; a `stok` value sets the stock |
+| `GET /api/products/export` | CSV download `barkod;ad;fiyat;stok` (UTF-8 with BOM) |
+| `GET/POST /api/products/:id/stock` | stock history (newest first) / `{ mode: add\|remove\|set, quantity, note }` |
+| `POST /api/stock/receive` | goods in: `{ lines: [{ product_id, quantity }], note }`, one transaction |
 | `GET /api/barcode/next` | next free in-store EAN-13 (`2` + 11-digit sequence + check digit) |
 | `GET/POST /api/orders` | list (`?day=YYYY-MM-DD`, Istanbul day; no day = latest 200) / create |
 | `GET/DELETE /api/orders/:id` | order with lines / delete (only a cancelled order) |

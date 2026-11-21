@@ -53,8 +53,44 @@ Sayfa yenilenirse yarım kalan sipariş kaybolmaz.
 - Barkod başka bir üründe kayıtlıysa form hemen uyarır ve o ürünün adını gösterir. Bu durumda ürün kaydedilmez. **Mevcut ürünü düzenle** düğmesi kayıtlı ürünü açar.
 - Hatalı bir alan kırmızı olur. Alanın altında ne yapmanız gerektiği yazar.
 - **Düzenle** ve **Sil** düğmeleri her satırdadır. Siparişte kullanılmış bir ürün silinemez.
-- **CSV İçe Aktar**: `barkod;ad;fiyat` biçiminde bir dosya seçin. Hatalı satırlar ekranda listelenir.
+- **CSV İçe Aktar**: `barkod;ad;fiyat` veya `barkod;ad;fiyat;stok` biçiminde bir dosya seçin. Hatalı satırlar ekranda listelenir.
 - **CSV Dışa Aktar**: tüm ürünleri Excel ile açılabilen bir dosyaya kaydeder.
+
+## Stok
+
+Her ürünün stoğu adet olarak tutulur. Stok **Ürünler** listesinde **Stok** sütununda görünür. Stoğu 0 veya daha az olan ürün kırmızı görünür. **Fiyat Gör** ekranı da stoğu gösterir.
+
+- Satış tamamlanınca satılan adetler stoktan düşer.
+- Satış stok yetersiz olsa da yapılır. Bu durumda stok eksiye düşer. Sayım ile düzeltin.
+- Sipariş iptal edilince satılan adetler stoğa geri eklenir.
+- Yeni ürün eklerken **Başlangıç stoğu** yazabilirsiniz.
+- Sadece stoğu biten ürünleri görmek için **Ürünler** ekranında **Stoğu bitenler** kutusunu işaretleyin.
+
+### Mal girişi (okutarak)
+
+1. **Stok Girişi** sekmesini açın.
+2. Gelen ürünleri okutun. Aynı ürünü tekrar okutmak adedi 1 artırır.
+3. Gerekirse **Gelen adet** kutusuna adedi yazın. Örnek: 24.
+4. İsterseniz **Not** kutusuna tedarikçi veya fatura numarasını yazın.
+5. **Stoğa Ekle** düğmesine basın.
+
+Liste, **Stoğa Ekle** düğmesine basılana kadar stoğu değiştirmez. Sayfa yenilense de liste kaybolmaz.
+
+### Tek ürünün stoğunu değiştirme
+
+1. **Ürünler** ekranında ürünün satırındaki **Stok** düğmesine basın.
+2. İşlemi seçin:
+   - **Ekle**: gelen malı ekler.
+   - **Çıkar**: bozuk veya kayıp malı düşer.
+   - **Sayım sonucu**: saydığınız adedi stok olarak yazar.
+3. Adedi ve isterseniz bir not yazın. **Yeni stok** değerini kontrol edin.
+4. **Kaydet** düğmesine basın.
+
+Aynı pencerede **Stok geçmişi** görünür: her satış, iptal, giriş ve sayım tarih ve notuyla listelenir.
+
+### CSV ile stok
+
+CSV dosyasına 4. sütun olarak `stok` ekleyebilirsiniz: `barkod;ad;fiyat;stok`. Bu sütunda değer olan ürünün stoğu o değere ayarlanır. Değer boşsa stok değişmez. **CSV Dışa Aktar** stok sütununu da yazar.
 
 ## Yazıcıyı ayarlama (bir kez yapılır)
 
