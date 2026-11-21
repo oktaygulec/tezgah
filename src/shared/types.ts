@@ -11,8 +11,40 @@ export interface Product {
   stock_qty: number;
   /** Purchase price (alış fiyatı). Null when not entered. */
   cost_kurus: number | null;
+  /** Category; null = no category. */
+  category_id: number | null;
+  /** Second sale price "with helium". Set only for products in a category with helium pricing. */
+  helium_price_kurus: number | null;
+  /** 1 = shown in the "Ürün seç" dialog of Satış. */
+  favorite: 0 | 1;
+  /** Time of the last photo change; null = no photo. Also used to refresh the cached photo. */
+  image_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface Category {
+  id: number;
+  name: string;
+  /** 1 = products have two sale prices: empty and with helium (balloons). */
+  helium_pricing: 0 | 1;
+  /** Number of products in the category. */
+  product_count: number;
+}
+
+export interface CategoryInput {
+  name: string;
+  helium_pricing: boolean;
+}
+
+/** URL of the product photo, or null when the product has none. */
+export function productImageUrl(p: { id: number; image_at: string | null }): string | null {
+  return p.image_at ? `/api/products/${p.id}/image?v=${encodeURIComponent(p.image_at)}` : null;
+}
+
+/** The sale price of a product, empty or with helium. */
+export function salePrice(p: { price_kurus: number; helium_price_kurus: number | null }, helium: boolean): number {
+  return helium && p.helium_price_kurus !== null ? p.helium_price_kurus : p.price_kurus;
 }
 
 export interface ProductInput {
@@ -21,6 +53,10 @@ export interface ProductInput {
   price_kurus: number;
   /** Purchase price; null or missing = not known. */
   cost_kurus?: number | null;
+  category_id?: number | null;
+  /** Required when the category has helium pricing; must be null otherwise. */
+  helium_price_kurus?: number | null;
+  favorite?: boolean;
 }
 
 export interface Order {
@@ -44,6 +80,8 @@ export interface OrderLine {
   unit_cost_kurus: number | null;
   quantity: number;
   line_total_kurus: number;
+  /** 1 = sold with helium (at the helium price). */
+  helium: 0 | 1;
 }
 
 export interface OrderWithLines extends Order {
@@ -55,6 +93,8 @@ export interface NewOrderLine {
   quantity: number;
   /** The price the cashier saw; the server refuses the order when it differs. */
   unit_price_kurus: number;
+  /** Sold with helium, at the helium price. */
+  helium?: boolean;
 }
 
 export interface ImportResult {

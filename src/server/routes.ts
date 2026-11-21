@@ -101,6 +101,34 @@ export function apiRoutes(db: Database, hooks: AppHooks) {
         return json({ ok: true });
       }),
     },
+    "/api/products/:id/favorite": {
+      PUT: safe(async (req) => json(repo.setFavorite(db, idParam(req.params.id), (await readJson(req) as { favorite?: unknown })?.favorite))),
+    },
+    "/api/products/:id/image": {
+      GET: safe((req) => {
+        const image = repo.getProductImage(db, idParam(req.params.id));
+        if (!image) throw new HttpError(404, "Bu ürünün fotoğrafı yok.");
+        // The URL carries the photo time (?v=...), so the browser can keep the file.
+        return new Response(new Uint8Array(image.data), { headers: { "Content-Type": image.mime, "Cache-Control": "private, max-age=31536000, immutable" } });
+      }),
+      PUT: safe(async (req) => {
+        const length = Number(req.headers.get("content-length") ?? 0);
+        if (length > repo.MAX_IMAGE_BYTES) throw new HttpError(413, "Fotoğraf çok büyük (en fazla 2 MB).");
+        return json(repo.setProductImage(db, idParam(req.params.id), new Uint8Array(await req.arrayBuffer())));
+      }),
+      DELETE: safe((req) => json(repo.deleteProductImage(db, idParam(req.params.id)))),
+    },
+    "/api/categories": {
+      GET: safe(() => json(repo.listCategories(db))),
+      POST: safe(async (req) => json(repo.createCategory(db, await readJson(req)), 201)),
+    },
+    "/api/categories/:id": {
+      PUT: safe(async (req) => json(repo.updateCategory(db, idParam(req.params.id), await readJson(req)))),
+      DELETE: safe((req) => {
+        repo.deleteCategory(db, idParam(req.params.id));
+        return json({ ok: true });
+      }),
+    },
     "/api/products/:id/stock": {
       GET: safe((req) => json(stock.listMovements(db, idParam(req.params.id)))),
       POST: safe(async (req) => json(stock.adjustStock(db, idParam(req.params.id), await readJson(req)))),
