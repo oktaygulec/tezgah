@@ -1,6 +1,6 @@
 // Ayarlar: shop name, label size and layout, printer, database backup, update.
 
-import { SETTING_LABELS, SETTING_RANGES, validateSettings, type NumericSettingKey, type Settings } from "../../shared/types";
+import { SETTING_LABELS, SETTING_RANGES, settingsErrors, type NumericSettingKey, type Settings } from "../../shared/types";
 import { api } from "../api";
 import { getSettings, setSettings } from "../state";
 import { errorMessage, h, run, toast, type Screen } from "../ui";
@@ -47,8 +47,34 @@ export function createSettingsScreen(): Screen {
     numbers.set(key, h("input", { class: "input input-number", type: "number", min, max, step }));
   }
 
-  const numberField = ([key]: [NumberKey, number]) =>
-    h("label", { class: "field field-inline" }, h("span", {}, SETTING_LABELS[key]), numbers.get(key)!);
+  /** Error line under each checked input. */
+  const fieldErrors = new Map<keyof Settings, { input: HTMLInputElement; error: HTMLElement }>();
+  const shopNameError = h("div", { class: "field-error", role: "alert" });
+  fieldErrors.set("shop_name", { input: shopName, error: shopNameError });
+
+  const numberField = ([key]: [NumberKey, number]) => {
+    const input = numbers.get(key)!;
+    const error = h("div", { class: "field-error", role: "alert" });
+    fieldErrors.set(key, { input, error });
+    return h("div", {}, h("label", { class: "field field-inline" }, h("span", {}, SETTING_LABELS[key]), input), error);
+  };
+  const saveButton = h("button", { type: "submit", class: "btn btn-primary" }, "Kaydet");
+  const testButton = h("button", { type: "button", class: "btn", onclick: () => run(testPrint) }, "Kaydet ve deneme etiketi yazdır");
+
+  /** Marks invalid fields; returns true when the form can be saved. */
+  function checkForm(s: Settings): boolean {
+    const errors = settingsErrors(s);
+    for (const [key, { input, error }] of fieldErrors) {
+      const message = errors[key] ?? "";
+      error.textContent = message;
+      input.classList.toggle("invalid", !!message);
+      input.setAttribute("aria-invalid", message ? "true" : "false");
+    }
+    const ok = Object.keys(errors).length === 0;
+    saveButton.disabled = !ok;
+    testButton.disabled = !ok;
+    return ok;
+  }
 
   /** Fills the printer list; the saved printer stays selectable even when Windows does not list it now. */
   async function loadPrinters(selected: string) {
@@ -85,7 +111,8 @@ export function createSettingsScreen(): Screen {
       printer_name: printerSelect.value,
       print_rotate_180: rotate.checked,
     };
-    for (const [key, input] of numbers) s[key] = Number(input.value.replace(",", "."));
+    // An empty box is NaN, so it fails the check instead of becoming 0.
+    for (const [key, input] of numbers) s[key] = input.value.trim() === "" ? Number.NaN : Number(input.value.replace(",", "."));
     return s;
   }
 
@@ -109,19 +136,20 @@ export function createSettingsScreen(): Screen {
     }
   }
 
-  /** Live preview of the values in the form (not yet saved). */
+  /** Checks the form and shows a live preview of the values (not yet saved). */
   function renderPreview() {
     const s = readForm();
-    const error = validateSettings(s);
+    const ok = checkForm(s);
     preview.replaceChildren(
       h("div", { class: "muted" }, "Önizleme (gerçek boyut):"),
-      error ? h("div", { class: "form-error" }, error) : labelPreview(PREVIEW_PRODUCT, s),
+      ok ? labelPreview(PREVIEW_PRODUCT, s) : h("div", { class: "form-error" }, "Önizleme için kırmızı işaretli alanları düzeltin."),
     );
   }
 
   async function save(e: Event) {
     e.preventDefault();
     formError.textContent = "";
+    if (!checkForm(readForm())) return;
     try {
       await saveForm();
       toast("Ayarlar kaydedildi.", "success");
@@ -136,6 +164,7 @@ export function createSettingsScreen(): Screen {
     { class: "form settings-form", onsubmit: save },
     h("h2", {}, "Dükkan"),
     h("label", { class: "field" }, h("span", {}, "Dükkan adı"), shopName),
+    shopNameError,
     h("h2", {}, "Etiket"),
     ...LABEL_FIELDS.map(numberField),
     h("label", { class: "check" }, showName, " Ürün adını göster"),
@@ -156,9 +185,9 @@ export function createSettingsScreen(): Screen {
     printerStatus,
     ...PRINTER_FIELDS.map(numberField),
     h("label", { class: "check" }, rotate, " Etiketi 180° çevir (baskı ters çıkıyorsa)"),
-    h("div", { class: "row" }, h("button", { type: "button", class: "btn", onclick: () => run(testPrint) }, "Kaydet ve deneme etiketi yazdır")),
+    h("div", { class: "row" }, testButton),
     formError,
-    h("div", { class: "row" }, h("button", { type: "submit", class: "btn btn-primary" }, "Kaydet")),
+    h("div", { class: "row" }, saveButton),
     h("h2", {}, "Yedek"),
     h("p", { class: "muted" }, "Veritabanının şu anki hâlini bilgisayarınıza indirir."),
     h("a", { class: "btn", href: "/api/backup", download: "" }, "Veritabanı yedeği indir"),

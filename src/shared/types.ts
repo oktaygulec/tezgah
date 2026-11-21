@@ -131,22 +131,38 @@ export const SETTING_LABELS: Record<NumericSettingKey, string> = {
 };
 
 /** Validates a settings object; returns a Turkish error text or null. */
-export function validateSettings(s: Settings): string | null {
-  if (typeof s.shop_name !== "string" || s.shop_name.trim().length > 100) return "Dükkan adı en fazla 100 karakter olabilir.";
-  for (const [key, [min, max]] of Object.entries(SETTING_RANGES)) {
-    const value = s[key as NumericSettingKey];
-    if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) {
-      return `${SETTING_LABELS[key as NumericSettingKey]}: ${min} ile ${max} arasında olmalı.`;
+export type SettingsErrors = Partial<Record<keyof Settings, string>>;
+
+/** Checks every setting; returns one Turkish message per invalid field. */
+export function settingsErrors(s: Settings): SettingsErrors {
+  const errors: SettingsErrors = {};
+  if (typeof s.shop_name !== "string" || s.shop_name.trim().length > 100) errors.shop_name = "Dükkan adı en fazla 100 karakter olabilir.";
+  for (const [key, [min, max]] of Object.entries(SETTING_RANGES) as [NumericSettingKey, [number, number]][]) {
+    const value = s[key];
+    if (typeof value !== "number" || !Number.isFinite(value)) errors[key] = `${SETTING_LABELS[key]}: bir sayı yazın.`;
+    else if (value < min || value > max) errors[key] = `${SETTING_LABELS[key]}: ${min} ile ${max} arasında olmalı.`;
+    else if (INTEGER_SETTINGS.includes(key) && !Number.isInteger(value)) errors[key] = `${SETTING_LABELS[key]}: tam sayı olmalı.`;
+  }
+  // Fields that depend on each other.
+  if (!errors.label_margin_mm && !errors.label_width_mm && !errors.label_height_mm) {
+    const smaller = Math.min(s.label_width_mm, s.label_height_mm);
+    if (s.label_margin_mm * 2 >= smaller) errors.label_margin_mm = `${SETTING_LABELS.label_margin_mm}: etiket için çok büyük.`;
+  }
+  if (!errors.barcode_height_mm && !errors.label_margin_mm && !errors.label_height_mm) {
+    if (s.barcode_height_mm >= s.label_height_mm - 2 * s.label_margin_mm) {
+      errors.barcode_height_mm = `${SETTING_LABELS.barcode_height_mm}: etiketin iç yüksekliğinden küçük olmalı.`;
     }
   }
-  for (const key of INTEGER_SETTINGS) {
-    if (!Number.isInteger(s[key])) return `${SETTING_LABELS[key]}: tam sayı olmalı.`;
+  for (const key of ["show_name", "show_price", "print_rotate_180"] as const) {
+    if (typeof s[key] !== "boolean") errors[key] = "Seçenek değeri hatalı.";
   }
-  if (typeof s.show_name !== "boolean" || typeof s.show_price !== "boolean" || typeof s.print_rotate_180 !== "boolean") {
-    return "Seçenek değerleri hatalı.";
-  }
-  if (typeof s.printer_name !== "string" || s.printer_name.length > 200) return "Yazıcı adı hatalı.";
-  return null;
+  if (typeof s.printer_name !== "string" || s.printer_name.length > 200) errors.printer_name = "Yazıcı adı hatalı.";
+  return errors;
+}
+
+/** The first settings error, or null when all settings are valid. */
+export function validateSettings(s: Settings): string | null {
+  return Object.values(settingsErrors(s))[0] ?? null;
 }
 
 export interface PrintLabelInput {

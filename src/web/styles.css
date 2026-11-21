@@ -162,3 +162,10 @@ html, body { margin: 0; height: 100%; background: var(--bg); }
 .order-actions { margin-top: 16px; display: flex; justify-content: flex-end; }
 .order-detail .notice { margin: 8px 0; font-size: 16px; }
 .screen-settings .label-preview { position: sticky; top: 0; }
+
+/* ----- field validation ----- */
+.input.invalid { border-color: var(--danger); background: #fff7f7; }
+.input.invalid:focus { outline-color: #fca5a5; }
+.field-error { color: var(--danger); font-size: 15px; font-weight: 600; }
+.field-error:empty { display: none; }
+.duplicate { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 6px; background: #fee2e2; color: var(--danger); font-weight: 400; font-size: 16px; }

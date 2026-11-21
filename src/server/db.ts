@@ -1,9 +1,9 @@
 import { Database } from "bun:sqlite";
 import { nextInStoreEan13 } from "../shared/barcode";
 import { parseProductCsv } from "../shared/csv";
-import { MAX_PRICE_KURUS } from "../shared/money";
 import { lineTotal } from "../shared/order";
 import { istanbulDayRange } from "../shared/time";
+import { barcodeError, nameError, priceKurusError } from "../shared/validate";
 import {
   DEFAULT_SETTINGS,
   validateSettings,
@@ -107,14 +107,9 @@ export function validateProductInput(input: unknown): ProductInput {
   const barcode = typeof body.barcode === "string" ? body.barcode.trim() : "";
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const price = body.price_kurus;
-  if (!barcode) throw new HttpError(400, "Barkod boş olamaz.");
-  if (barcode.length > 64 || /\s/.test(barcode)) throw new HttpError(400, "Barkod en fazla 64 karakter olmalı ve boşluk içermemeli.");
-  if (!name) throw new HttpError(400, "Ürün adı boş olamaz.");
-  if (name.length > 200) throw new HttpError(400, "Ürün adı en fazla 200 karakter olabilir.");
-  if (typeof price !== "number" || !Number.isSafeInteger(price) || price < 0 || price > MAX_PRICE_KURUS) {
-    throw new HttpError(400, "Fiyat geçersiz.");
-  }
-  return { barcode, name, price_kurus: price };
+  const error = barcodeError(barcode) ?? nameError(name) ?? priceKurusError(price);
+  if (error) throw new HttpError(400, error);
+  return { barcode, name, price_kurus: price as number };
 }
 
 function assertBarcodeFree(db: Database, barcode: string, exceptId?: number) {

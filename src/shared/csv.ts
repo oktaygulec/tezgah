@@ -1,6 +1,7 @@
 // Product CSV: "barkod;ad;fiyat", semicolon separated, UTF-8 with or without BOM.
 
 import { formatMoneyPlain, parseMoney } from "./money";
+import { barcodeError, nameError } from "./validate";
 
 export interface CsvProductRow {
   line: number; // 1-based line number in the file
@@ -65,9 +66,8 @@ export function parseProductCsv(text: string): CsvParseResult {
     const fail = (reason: string) => errors.push({ line, text: raw, reason });
     if (fields.length !== 3) return fail(`3 sütun olmalı (barkod;ad;fiyat), ${fields.length} sütun var`);
     const [barcode, name, priceText] = fields as [string, string, string];
-    if (!barcode) return fail("Barkod boş");
-    if (/\s/.test(barcode)) return fail("Barkod boşluk içeremez");
-    if (!name) return fail("Ürün adı boş");
+    const fieldError = barcodeError(barcode) ?? nameError(name);
+    if (fieldError) return fail(fieldError);
     const price = parseMoney(priceText);
     if (price === null) return fail(`Fiyat anlaşılamadı: "${priceText}"`);
     const firstLine = seen.get(barcode);
