@@ -50,6 +50,8 @@ Sayfa yenilenirse yarım kalan sipariş kaybolmaz.
 
 - **Yeni Ürün**: barkod, ad ve fiyat girin. Fiyatı `12,50` veya `12.50` olarak yazabilirsiniz.
 - Ürünün barkodu yoksa **Barkod oluştur** düğmesine basın. Program dükkana özel bir barkod verir.
+- Barkod başka bir üründe kayıtlıysa form hemen uyarır ve o ürünün adını gösterir. Bu durumda ürün kaydedilmez. **Mevcut ürünü düzenle** düğmesi kayıtlı ürünü açar.
+- Hatalı bir alan kırmızı olur. Alanın altında ne yapmanız gerektiği yazar.
 - **Düzenle** ve **Sil** düğmeleri her satırdadır. Siparişte kullanılmış bir ürün silinemez.
 - **CSV İçe Aktar**: `barkod;ad;fiyat` biçiminde bir dosya seçin. Hatalı satırlar ekranda listelenir.
 - **CSV Dışa Aktar**: tüm ürünleri Excel ile açılabilen bir dosyaya kaydeder.
