@@ -4,7 +4,7 @@ import { parseProductCsv } from "../shared/csv";
 import { lineTotal } from "../shared/order";
 import { MAX_STOCK_QUANTITY, type StockReason } from "../shared/stock";
 import { istanbulDayRange } from "../shared/time";
-import { barcodeError, nameError, priceKurusError } from "../shared/validate";
+import { barcodeError, costKurusError, nameError, priceKurusError } from "../shared/validate";
 import {
   DEFAULT_SETTINGS,
   validateSettings,
@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS products (
   name TEXT NOT NULL,
   price_kurus INTEGER NOT NULL CHECK (price_kurus >= 0),
   stock_qty INTEGER NOT NULL DEFAULT 0,
+  cost_kurus INTEGER CHECK (cost_kurus >= 0),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -53,6 +54,7 @@ CREATE TABLE IF NOT EXISTS order_lines (
   barcode TEXT NOT NULL,
   name TEXT NOT NULL,
   unit_price_kurus INTEGER NOT NULL,
+  unit_cost_kurus INTEGER,
   quantity INTEGER NOT NULL CHECK (quantity > 0),
   line_total_kurus INTEGER NOT NULL
 );
@@ -94,6 +96,8 @@ function migrate(db: Database) {
     (db.query(`PRAGMA table_info(${table})`).all() as { name: string }[]).some((c) => c.name === column);
   if (!has("orders", "cancelled_at")) db.run("ALTER TABLE orders ADD COLUMN cancelled_at TEXT"); // added in 1.2.0
   if (!has("products", "stock_qty")) db.run("ALTER TABLE products ADD COLUMN stock_qty INTEGER NOT NULL DEFAULT 0"); // added in 1.3.0
+  if (!has("products", "cost_kurus")) db.run("ALTER TABLE products ADD COLUMN cost_kurus INTEGER CHECK (cost_kurus >= 0)"); // 1.4.0
+  if (!has("order_lines", "unit_cost_kurus")) db.run("ALTER TABLE order_lines ADD COLUMN unit_cost_kurus INTEGER"); // 1.4.0
 }
 
 const now = () => new Date().toISOString();
@@ -140,9 +144,10 @@ export function validateProductInput(input: unknown): ProductInput {
   const barcode = typeof body.barcode === "string" ? body.barcode.trim() : "";
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const price = body.price_kurus;
-  const error = barcodeError(barcode) ?? nameError(name) ?? priceKurusError(price);
+  const cost = body.cost_kurus ?? null;
+  const error = barcodeError(barcode) ?? nameError(name) ?? priceKurusError(price) ?? costKurusError(cost);
   if (error) throw new HttpError(400, error);
-  return { barcode, name, price_kurus: price as number };
+  return { barcode, name, price_kurus: price as number, cost_kurus: cost as number | null };
 }
 
 function assertBarcodeFree(db: Database, barcode: string, exceptId?: number) {
@@ -166,8 +171,8 @@ export function createProduct(db: Database, input: ProductInput, initialStock = 
   const t = now();
   return db.transaction(() => {
     const product = db
-      .query("INSERT INTO products (barcode, name, price_kurus, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING *")
-      .get(input.barcode, input.name, input.price_kurus, t, t) as Product;
+      .query("INSERT INTO products (barcode, name, price_kurus, cost_kurus, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *")
+      .get(input.barcode, input.name, input.price_kurus, input.cost_kurus ?? null, t, t) as Product;
     if (initialStock !== 0) product.stock_qty = applyStockChange(db, product.id, initialStock, "initial");
     return product;
   })();
@@ -177,8 +182,8 @@ export function updateProduct(db: Database, id: number, input: ProductInput): Pr
   getProduct(db, id);
   assertBarcodeFree(db, input.barcode, id);
   return db
-    .query("UPDATE products SET barcode = ?, name = ?, price_kurus = ?, updated_at = ? WHERE id = ? RETURNING *")
-    .get(input.barcode, input.name, input.price_kurus, now(), id) as Product;
+    .query("UPDATE products SET barcode = ?, name = ?, price_kurus = ?, cost_kurus = ?, updated_at = ? WHERE id = ? RETURNING *")
+    .get(input.barcode, input.name, input.price_kurus, input.cost_kurus ?? null, now(), id) as Product;
 }
 
 export function deleteProduct(db: Database, id: number): void {
@@ -208,9 +213,10 @@ export function importProductsCsv(db: Database, text: string): ImportResult {
   const t = now();
   const findStmt = db.query("SELECT id, stock_qty FROM products WHERE barcode = ?");
   const insertStmt = db.query(
-    "INSERT INTO products (barcode, name, price_kurus, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING id",
+    "INSERT INTO products (barcode, name, price_kurus, cost_kurus, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
   );
   const updateStmt = db.query("UPDATE products SET name = ?, price_kurus = ?, updated_at = ? WHERE id = ?");
+  const costStmt = db.query("UPDATE products SET cost_kurus = ? WHERE id = ?");
 
   db.transaction(() => {
     for (const row of rows) {
@@ -219,11 +225,13 @@ export function importProductsCsv(db: Database, text: string): ImportResult {
       let current = 0;
       if (existing) {
         updateStmt.run(row.name, row.price_kurus, t, existing.id);
+        // An empty "alis_fiyati" cell keeps the purchase price that is already saved.
+        if (row.cost_kurus !== undefined) costStmt.run(row.cost_kurus, existing.id);
         id = existing.id;
         current = existing.stock_qty;
         result.updated++;
       } else {
-        id = (insertStmt.get(row.barcode, row.name, row.price_kurus, t, t) as { id: number }).id;
+        id = (insertStmt.get(row.barcode, row.name, row.price_kurus, row.cost_kurus ?? null, t, t) as { id: number }).id;
         result.added++;
       }
       if (row.stock_qty !== undefined && row.stock_qty !== current) {
@@ -256,6 +264,7 @@ export function createOrder(db: Database, input: unknown): OrderWithLines {
         barcode: product.barcode,
         name: product.name,
         unit_price_kurus: product.price_kurus,
+        unit_cost_kurus: product.cost_kurus,
         quantity: raw.quantity,
         line_total_kurus: lineTotal({ unit_price_kurus: product.price_kurus, quantity: raw.quantity }),
       });
@@ -277,11 +286,11 @@ export function createOrder(db: Database, input: unknown): OrderWithLines {
       .query("INSERT INTO orders (order_no, total_kurus, created_at) VALUES (?, ?, ?) RETURNING id")
       .get(next, total, now()) as { id: number };
     const insertLine = db.query(
-      `INSERT INTO order_lines (order_id, product_id, barcode, name, unit_price_kurus, quantity, line_total_kurus)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO order_lines (order_id, product_id, barcode, name, unit_price_kurus, unit_cost_kurus, quantity, line_total_kurus)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     for (const l of priced) {
-      insertLine.run(order.id, l.product_id, l.barcode, l.name, l.unit_price_kurus, l.quantity, l.line_total_kurus);
+      insertLine.run(order.id, l.product_id, l.barcode, l.name, l.unit_price_kurus, l.unit_cost_kurus, l.quantity, l.line_total_kurus);
       applyStockChange(db, l.product_id, -l.quantity, "sale", { orderNo: next });
     }
     return getOrder(db, order.id);

@@ -35,6 +35,20 @@ export function priceKurusError(kurus: unknown): string | null {
   return null;
 }
 
+/** Checks a purchase price in kuruş; null (not known) is allowed. */
+export function costKurusError(kurus: unknown): string | null {
+  if (kurus === null) return null;
+  const error = priceKurusError(kurus);
+  return error ? error.replace("Fiyat", "Alış fiyatı") : null;
+}
+
+/** Checks a purchase price typed by a person; an empty box means "not known". */
+export function costTextError(text: string): string | null {
+  if (text.trim() === "") return null;
+  const error = priceTextError(text);
+  return error ? error.replace("Fiyat", "Alış fiyatı") : null;
+}
+
 /** Checks a price typed by a person ("12,50", "12.50", "1.234,56"). */
 export function priceTextError(text: string): string | null {
   const trimmed = text.trim();

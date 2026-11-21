@@ -1,5 +1,7 @@
 // Shapes shared by the API and the web app.
 
+import type { BucketDef, Period } from "./report";
+
 export interface Product {
   id: number;
   barcode: string;
@@ -7,6 +9,8 @@ export interface Product {
   price_kurus: number;
   /** Pieces in stock. Can be below zero when more was sold than recorded. */
   stock_qty: number;
+  /** Purchase price (alış fiyatı). Null when not entered. */
+  cost_kurus: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -15,6 +19,8 @@ export interface ProductInput {
   barcode: string;
   name: string;
   price_kurus: number;
+  /** Purchase price; null or missing = not known. */
+  cost_kurus?: number | null;
 }
 
 export interface Order {
@@ -34,6 +40,8 @@ export interface OrderLine {
   barcode: string;
   name: string;
   unit_price_kurus: number;
+  /** Purchase price at the time of sale; null when it was not known. */
+  unit_cost_kurus: number | null;
   quantity: number;
   line_total_kurus: number;
 }
@@ -74,6 +82,8 @@ export interface Settings {
   print_offset_x_mm: number;
   print_offset_y_mm: number;
   print_rotate_180: boolean;
+  /** Products with this stock or less are listed in Azalan Stok. */
+  low_stock_threshold: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -94,6 +104,7 @@ export const DEFAULT_SETTINGS: Settings = {
   print_offset_x_mm: 0,
   print_offset_y_mm: 0,
   print_rotate_180: false,
+  low_stock_threshold: 5,
 };
 
 export type NumericSettingKey = { [K in keyof Settings]: Settings[K] extends number ? K : never }[keyof Settings];
@@ -112,10 +123,11 @@ export const SETTING_RANGES: Record<NumericSettingKey, [number, number]> = {
   print_speed: [1, 6],
   print_offset_x_mm: [-10, 10],
   print_offset_y_mm: [-10, 10],
+  low_stock_threshold: [0, 100000],
 };
 
 /** Settings that must be whole numbers. */
-const INTEGER_SETTINGS: NumericSettingKey[] = ["print_density", "print_speed"];
+const INTEGER_SETTINGS: NumericSettingKey[] = ["print_density", "print_speed", "low_stock_threshold"];
 
 export const SETTING_LABELS: Record<NumericSettingKey, string> = {
   label_width_mm: "Etiket genişliği (mm)",
@@ -130,6 +142,7 @@ export const SETTING_LABELS: Record<NumericSettingKey, string> = {
   print_speed: "Baskı hızı (1-6)",
   print_offset_x_mm: "Sağa kaydır (mm)",
   print_offset_y_mm: "Aşağı kaydır (mm)",
+  low_stock_threshold: "Azalan stok sınırı (adet)",
 };
 
 /** Validates a settings object; returns a Turkish error text or null. */
@@ -192,4 +205,56 @@ export interface HealthResponse {
   app: "tezgah";
   ok: true;
   version: string;
+}
+
+// ---------- reports ----------
+
+export interface ReportTotals {
+  revenue_kurus: number;
+  /** Purchase cost of the lines whose purchase price was known. */
+  cost_kurus: number;
+  /** Gross profit of the lines whose purchase price was known. */
+  profit_kurus: number;
+  /** Revenue of lines sold without a known purchase price (not in the profit). */
+  unknown_cost_revenue_kurus: number;
+  orders: number;
+  pieces: number;
+  cancelled_orders: number;
+  cancelled_kurus: number;
+}
+
+export interface ReportBucket extends BucketDef {
+  revenue_kurus: number;
+  profit_kurus: number;
+  orders: number;
+  pieces: number;
+}
+
+export interface TopProduct {
+  product_id: number;
+  name: string;
+  barcode: string;
+  pieces: number;
+  revenue_kurus: number;
+  profit_kurus: number;
+  /** True when some of these sales had no known purchase price. */
+  unknown_cost: boolean;
+}
+
+export interface SalesReport {
+  period: Period;
+  previous: Period;
+  totals: ReportTotals;
+  previous_totals: ReportTotals;
+  buckets: ReportBucket[];
+  /** Every product sold in the period, most pieces first. */
+  products: TopProduct[];
+  /** Products in stock that sold nothing in the period (up to 50, highest stock value first). */
+  unsold: { product_id: number; name: string; barcode: string; stock_qty: number; cost_kurus: number | null; price_kurus: number }[];
+  /** Current stock value (not tied to the period). */
+  stock: { pieces: number; cost_value_kurus: number; sale_value_kurus: number; products_without_cost: number };
+}
+
+export interface LowStockItem extends Product {
+  sold_30d: number;
 }

@@ -35,7 +35,7 @@ describe("CSV import parsing", () => {
     expect(errors[0]!.reason).toContain("Barkod boş");
     expect(errors[1]!.reason).toContain("Ürün adı boş");
     expect(errors[2]!.reason).toContain("Fiyat");
-    expect(errors[3]!.reason).toContain("3 veya 4 sütun");
+    expect(errors[3]!.reason).toContain("3 ile 5 arası sütun");
     expect(errors[4]!.reason).toContain("2. satırda");
     expect(errors[4]!.text).toBe("111;Tekrar;6");
   });
@@ -47,14 +47,21 @@ describe("CSV import parsing", () => {
 
   test("export then import returns the same products", () => {
     const products = [
-      { barcode: "4006381333931", name: "Kalem", price_kurus: 1250, stock_qty: 12 },
-      { barcode: "X;1", name: 'Çay; "Rize"', price_kurus: 123456, stock_qty: -3 },
+      { barcode: "4006381333931", name: "Kalem", price_kurus: 1250, stock_qty: 12, cost_kurus: 800 },
+      { barcode: "X;1", name: 'Çay; "Rize"', price_kurus: 123456, stock_qty: -3, cost_kurus: undefined },
     ];
     const csv = productsToCsv(products);
-    expect(csv.startsWith("﻿barkod;ad;fiyat;stok\r\n")).toBe(true);
+    expect(csv.startsWith("﻿barkod;ad;fiyat;stok;alis_fiyati\r\n")).toBe(true);
+    expect(csv).toContain("4006381333931;Kalem;12,50;12;8,00\r\n");
     const { rows, errors } = parseProductCsv(csv);
     expect(errors).toEqual([]);
-    expect(rows.map(({ barcode, name, price_kurus, stock_qty }) => ({ barcode, name, price_kurus, stock_qty }))).toEqual(products);
+    expect(rows.map(({ barcode, name, price_kurus, stock_qty, cost_kurus }) => ({ barcode, name, price_kurus, stock_qty, cost_kurus }))).toEqual(products);
+  });
+
+  test("optional purchase price column", () => {
+    const { rows, errors } = parseProductCsv("1;A;5;;3,20\n2;B;5;1;\n3;C;5;1;abc");
+    expect(rows.map((r) => [r.barcode, r.stock_qty, r.cost_kurus])).toEqual([["1", undefined, 320], ["2", 1, undefined]]);
+    expect(errors[0]!.reason).toContain("Alış fiyatı");
   });
 
   test("optional stock column", () => {

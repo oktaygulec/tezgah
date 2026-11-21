@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { productsToCsv } from "../shared/csv";
-import { backupStamp } from "../shared/time";
+import { backupStamp, istanbulDay } from "../shared/time";
 import type { HealthResponse } from "../shared/types";
 import * as repo from "./db";
 import { HttpError } from "./db";
@@ -8,6 +8,7 @@ import { buildTspl, bytesPerRow } from "../shared/tspl";
 import type { PrintLabelInput } from "../shared/types";
 import { listPrinters, sendRaw } from "./printer";
 import * as stock from "./stock";
+import { lowStock, salesReport } from "./reports";
 import { checkForUpdate, installUpdate, VERSION } from "./update";
 
 type Handler = (
@@ -103,6 +104,15 @@ export function apiRoutes(db: Database, hooks: AppHooks) {
     "/api/products/:id/stock": {
       GET: safe((req) => json(stock.listMovements(db, idParam(req.params.id)))),
       POST: safe(async (req) => json(stock.adjustStock(db, idParam(req.params.id), await readJson(req)))),
+    },
+    "/api/stock/low": {
+      GET: safe(() => json(lowStock(db, repo.getSettings(db).low_stock_threshold))),
+    },
+    "/api/reports/sales": {
+      GET: safe((req) => {
+        const q = new URL(req.url).searchParams;
+        return json(salesReport(db, q.get("period") ?? "month", q.get("date") ?? istanbulDay()));
+      }),
     },
     "/api/stock/receive": {
       POST: safe(async (req) => json(stock.receiveStock(db, await readJson(req)))),

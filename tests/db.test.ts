@@ -24,7 +24,10 @@ describe("products", () => {
       barcode: "0123",
       name: "Çay",
       price_kurus: 5,
+      cost_kurus: null,
     });
+    expect(repo.validateProductInput({ barcode: "1", name: "A", price_kurus: 500, cost_kurus: 320 }).cost_kurus).toBe(320);
+    expect(() => repo.validateProductInput({ barcode: "1", name: "A", price_kurus: 500, cost_kurus: -1 })).toThrow("Alış fiyatı");
   });
 
   test("next in-store barcode skips used ones", () => {

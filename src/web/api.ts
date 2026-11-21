@@ -9,11 +9,14 @@ import type {
   ProductInput,
   Settings,
   HealthResponse,
+  LowStockItem,
+  SalesReport,
   PrinterList,
   PrintLabelInput,
   UpdateInfo,
 } from "../shared/types";
 import type { StockMode, StockMovement } from "../shared/stock";
+import type { PeriodKind } from "../shared/report";
 
 export class ApiError extends Error {
   constructor(
@@ -56,6 +59,9 @@ export const api = {
   adjustStock: (id: number, body: { mode: StockMode; quantity: number; note: string }) =>
     request<Product>("POST", `/api/products/${id}/stock`, body),
   stockMovements: (id: number) => request<StockMovement[]>("GET", `/api/products/${id}/stock`),
+  lowStock: () => request<LowStockItem[]>("GET", "/api/stock/low"),
+  salesReport: (period: PeriodKind, date: string) =>
+    request<SalesReport>("GET", `/api/reports/sales?period=${period}&date=${date}`),
   receiveStock: (lines: { product_id: number; quantity: number }[], note: string) =>
     request<{ products: number; pieces: number }>("POST", "/api/stock/receive", { lines, note }),
   updateProduct: (id: number, input: ProductInput) => request<Product>("PUT", `/api/products/${id}`, input),
