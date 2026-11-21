@@ -95,6 +95,19 @@ Barkod bulanık veya kesik çıkarsa, ölçeğin 100 olduğunu kontrol edin.
 
 **Siparişler** ekranı seçilen günün siparişlerini gösterir. En yeni sipariş en üsttedir. Satırları görmek için siparişe tıklayın.
 
+## Güncelleme
+
+İnternet bağlantısı gerekir.
+
+1. **Ayarlar** sekmesini açın.
+2. **Güncelleme** bölümünde **Güncellemeleri denetle** düğmesine basın.
+3. Yeni sürüm varsa **Güncelle ve yeniden başlat** düğmesine basın ve onaylayın.
+4. Bekleyin. Siyah pencere kapanır ve yenisi açılır. Sayfa kendiliğinden yenilenir.
+
+Ürünler, siparişler ve yarım kalan sipariş korunur.
+
+Güncelleme sırasında siyah pencereyi kapatmayın.
+
 ## Yedekleme
 
 Program her açılışta `data\backups` klasörüne bir yedek alır. Son 30 yedek saklanır.
