@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS orders (
   id INTEGER PRIMARY KEY,
   order_no INTEGER NOT NULL UNIQUE,
   total_kurus INTEGER NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  cancelled_at TEXT
 );
 CREATE INDEX IF NOT EXISTS orders_created_at ON orders(created_at);
 CREATE TABLE IF NOT EXISTS order_lines (
@@ -66,7 +67,16 @@ export function openDatabase(file: string): Database {
   db.run("PRAGMA foreign_keys = ON");
   db.run("PRAGMA busy_timeout = 5000");
   db.exec(SCHEMA);
+  migrate(db);
   return db;
+}
+
+/** Brings a database made by an older version up to date. */
+function migrate(db: Database) {
+  const columns = db.query("PRAGMA table_info(orders)").all() as { name: string }[];
+  if (!columns.some((c) => c.name === "cancelled_at")) {
+    db.run("ALTER TABLE orders ADD COLUMN cancelled_at TEXT"); // added in 1.2.0
+  }
 }
 
 const now = () => new Date().toISOString();
@@ -210,6 +220,14 @@ export function createOrder(db: Database, input: unknown): OrderWithLines {
     }
     return getOrder(db, order.id);
   })();
+}
+
+/** Marks a saved order as cancelled. The order and its lines stay for the record. */
+export function cancelOrder(db: Database, id: number): OrderWithLines {
+  const order = getOrder(db, id);
+  if (order.cancelled_at) throw new HttpError(409, `Sipariş No ${order.order_no} zaten iptal edilmiş.`);
+  db.query("UPDATE orders SET cancelled_at = ? WHERE id = ?").run(now(), id);
+  return getOrder(db, id);
 }
 
 const ORDER_SELECT = `

@@ -97,6 +97,9 @@ export function apiRoutes(db: Database, hooks: AppHooks) {
     "/api/orders/:id": {
       GET: safe((req) => json(repo.getOrder(db, idParam(req.params.id)))),
     },
+    "/api/orders/:id/cancel": {
+      POST: safe((req) => json(repo.cancelOrder(db, idParam(req.params.id)))),
+    },
     "/api/settings": {
       GET: safe(() => json(repo.getSettings(db))),
       PUT: safe(async (req) => json(repo.saveSettings(db, await readJson(req)))),

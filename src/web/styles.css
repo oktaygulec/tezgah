@@ -153,3 +153,11 @@ html, body { margin: 0; height: 100%; background: var(--bg); }
 .update-status { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; font-size: 17px; }
 .update-status:empty { display: none; }
 .update-notes { white-space: pre-wrap; font: inherit; font-size: 15px; margin: 0; max-height: 160px; overflow: auto; background: #f9fafb; padding: 8px; border-radius: 6px; width: 100%; }
+
+/* ----- cancelled orders ----- */
+.table tr.selected { background: #dbeafe; }
+.table tr.cancelled td { color: var(--muted); }
+.table tr.cancelled .order-amount, .order-total.struck strong { text-decoration: line-through; }
+.badge-cancelled { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: #fee2e2; color: var(--danger); font-size: 13px; font-weight: 700; }
+.order-actions { margin-top: 16px; display: flex; justify-content: flex-end; }
+.order-detail .notice { margin: 8px 0; font-size: 16px; }

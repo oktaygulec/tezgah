@@ -20,6 +20,8 @@ export interface Order {
   order_no: number;
   total_kurus: number;
   created_at: string;
+  /** Set when the order was cancelled after it was saved. */
+  cancelled_at: string | null;
   line_count: number;
 }
 

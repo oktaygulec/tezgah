@@ -55,6 +55,7 @@ export const api = {
   importCsv: (text: string) => request<ImportResult>("POST", "/api/products/import", undefined, text),
   orders: (day?: string) => request<Order[]>("GET", day ? `/api/orders?day=${day}` : "/api/orders"),
   order: (id: number) => request<OrderWithLines>("GET", `/api/orders/${id}`),
+  cancelOrder: (id: number) => request<OrderWithLines>("POST", `/api/orders/${id}/cancel`),
   createOrder: (lines: NewOrderLine[]) => request<OrderWithLines>("POST", "/api/orders", { lines }),
   settings: () => request<Settings>("GET", "/api/settings"),
   saveSettings: (s: Settings) => request<Settings>("PUT", "/api/settings", s),

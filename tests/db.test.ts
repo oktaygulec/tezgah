@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -120,5 +121,33 @@ describe("backups", () => {
     expect(left).toHaveLength(30);
     expect(left).toContain(path.basename(file)); // the newest stays
     expect(readdirSync(backups)).toContain("other.txt"); // unrelated files stay
+  });
+});
+
+describe("order cancel", () => {
+  test("cancel marks the order and keeps its lines; a second cancel is refused", () => {
+    const db = fresh();
+    const p = repo.createProduct(db, { barcode: "1", name: "A", price_kurus: 500 });
+    const o = repo.createOrder(db, { lines: [{ product_id: p.id, quantity: 2, unit_price_kurus: 500 }] });
+    expect(o.cancelled_at).toBeNull();
+    const cancelled = repo.cancelOrder(db, o.id);
+    expect(cancelled.cancelled_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(cancelled.lines).toHaveLength(1);
+    expect(cancelled.total_kurus).toBe(1000);
+    expect(() => repo.cancelOrder(db, o.id)).toThrow("zaten iptal");
+    expect(() => repo.cancelOrder(db, 999)).toThrow("bulunamadı");
+    // A product on a cancelled order is still on an order: it cannot be deleted.
+    expect(() => repo.deleteProduct(db, p.id)).toThrow("silinemez");
+  });
+
+  test("old databases get the cancelled_at column", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "tezgah-migrate-"));
+    const file = path.join(dir, "old.db");
+    const old = new Database(file);
+    old.exec("CREATE TABLE orders (id INTEGER PRIMARY KEY, order_no INTEGER NOT NULL UNIQUE, total_kurus INTEGER NOT NULL, created_at TEXT NOT NULL)");
+    old.exec("INSERT INTO orders VALUES (1, 1, 100, '2026-01-01T00:00:00.000Z')");
+    old.close();
+    const db = repo.openDatabase(file);
+    expect(repo.listOrders(db)[0]).toMatchObject({ order_no: 1, cancelled_at: null });
   });
 });
