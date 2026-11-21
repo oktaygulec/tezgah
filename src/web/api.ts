@@ -13,6 +13,7 @@ import type {
   PrintLabelInput,
   UpdateInfo,
 } from "../shared/types";
+import type { StockMode, StockMovement } from "../shared/stock";
 
 export class ApiError extends Error {
   constructor(
@@ -50,7 +51,13 @@ export const api = {
   products: () => request<Product[]>("GET", "/api/products"),
   productByBarcode: (barcode: string) =>
     request<Product>("GET", `/api/products/by-barcode/${encodeURIComponent(barcode)}`),
-  createProduct: (input: ProductInput) => request<Product>("POST", "/api/products", input),
+  createProduct: (input: ProductInput, initialStock = 0) =>
+    request<Product>("POST", "/api/products", { ...input, stock_qty: initialStock }),
+  adjustStock: (id: number, body: { mode: StockMode; quantity: number; note: string }) =>
+    request<Product>("POST", `/api/products/${id}/stock`, body),
+  stockMovements: (id: number) => request<StockMovement[]>("GET", `/api/products/${id}/stock`),
+  receiveStock: (lines: { product_id: number; quantity: number }[], note: string) =>
+    request<{ products: number; pieces: number }>("POST", "/api/stock/receive", { lines, note }),
   updateProduct: (id: number, input: ProductInput) => request<Product>("PUT", `/api/products/${id}`, input),
   deleteProduct: (id: number) => request<{ ok: true }>("DELETE", `/api/products/${id}`),
   nextBarcode: () => request<{ barcode: string }>("GET", "/api/barcode/next"),

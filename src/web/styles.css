@@ -169,3 +169,22 @@ html, body { margin: 0; height: 100%; background: var(--bg); }
 .field-error { color: var(--danger); font-size: 15px; font-weight: 600; }
 .field-error:empty { display: none; }
 .duplicate { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 6px; background: #fee2e2; color: var(--danger); font-weight: 400; font-size: 16px; }
+
+/* ----- stock ----- */
+.stock-low { color: var(--danger) !important; }
+.stock-plus { color: var(--success); font-weight: 700; }
+.stock-minus { color: var(--danger); font-weight: 700; }
+.stock-current { font-size: 20px; }
+.stock-current strong { font-size: 28px; }
+.stock-modes { display: flex; flex-direction: column; gap: 6px; }
+.stock-result { font-size: 18px; min-height: 24px; }
+.stock-result strong { font-size: 22px; }
+.stock-history { max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+.stock-history .table td { font-size: 15px; padding: 5px 8px; }
+.dialog:has(.stock-history), .dialog:has(.stock-modes) { width: min(760px, 94vw); }
+.dialog h3 { margin: 12px 0 0; font-size: 18px; }
+.price-stock { font-size: 28px; font-weight: 700; color: var(--muted); }
+.stockin-footer .input { flex: 1; max-width: 420px; }
+.stockin-summary { display: flex; align-items: baseline; gap: 12px; font-size: 20px; color: var(--muted); }
+.stockin-summary strong { font-size: 30px; color: var(--text); }
+.tabs a { padding: 0 13px; }

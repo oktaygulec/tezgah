@@ -17,6 +17,7 @@ export function createPriceScreen(): Screen {
     result.replaceChildren(
       h("div", { class: "price-name" }, product.name),
       h("div", { class: "price-big" }, formatMoney(product.price_kurus)),
+      h("div", { class: `price-stock${product.stock_qty <= 0 ? " stock-low" : ""}` }, `Stok: ${product.stock_qty} adet`),
       h("div", { class: "muted" }, product.barcode),
     );
   });

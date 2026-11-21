@@ -1,4 +1,4 @@
-// Ürünler: search, add, edit, delete, CSV import and export.
+// Ürünler: search, add, edit, delete, stock, CSV import and export.
 
 import { formatMoney } from "../../shared/money";
 import type { ImportResult, Product } from "../../shared/types";
@@ -6,6 +6,7 @@ import { api } from "../api";
 import { openProductForm } from "../productForm";
 import { confirmDialog, h, run, toast, type Screen } from "../ui";
 import { matchesSearch, sortByName } from "../search";
+import { openStockDialog } from "../stockDialog";
 import { selectForLabel } from "./labels";
 
 const MAX_ROWS = 500;
@@ -15,6 +16,8 @@ export function createProductsScreen(): Screen {
 
   const search = h("input", { class: "input", type: "search", placeholder: "Barkod veya ad ile ara…", autocomplete: "off" });
   search.addEventListener("input", render);
+  const outOfStock = h("input", { type: "checkbox" });
+  outOfStock.addEventListener("change", render);
   const tbody = h("tbody");
   const info = h("div", { class: "muted" });
   const importReport = h("div", { class: "import-report", hidden: true });
@@ -32,6 +35,13 @@ export function createProductsScreen(): Screen {
 
   async function edit(product: Product) {
     if (await openProductForm({ product })) await load();
+  }
+
+  async function changeStock(product: Product) {
+    const updated = await openStockDialog(product);
+    if (!updated) return;
+    toast(`${updated.name}: stok ${updated.stock_qty} adet.`, "success");
+    await load();
   }
 
   async function remove(product: Product) {
@@ -67,7 +77,7 @@ export function createProductsScreen(): Screen {
   }
 
   function render() {
-    const found = products.filter((p) => matchesSearch(p, search.value));
+    const found = products.filter((p) => matchesSearch(p, search.value) && (!outOfStock.checked || p.stock_qty <= 0));
     const shown = found.slice(0, MAX_ROWS);
     tbody.replaceChildren(
       ...shown.map((p) =>
@@ -77,9 +87,11 @@ export function createProductsScreen(): Screen {
           h("td", { class: "mono" }, p.barcode),
           h("td", {}, p.name),
           h("td", { class: "num strong" }, formatMoney(p.price_kurus)),
+          h("td", { class: `num strong${p.stock_qty <= 0 ? " stock-low" : ""}` }, p.stock_qty),
           h(
             "td",
             { class: "actions" },
+            h("button", { class: "btn", onclick: () => run(() => changeStock(p)) }, "Stok"),
             h("button", { class: "btn", onclick: () => run(() => edit(p)) }, "Düzenle"),
             h(
               "button",
@@ -98,12 +110,12 @@ export function createProductsScreen(): Screen {
       ),
     );
     if (shown.length === 0) {
-      tbody.append(h("tr", {}, h("td", { colSpan: 4, class: "empty" }, products.length ? "Aramaya uyan ürün yok." : "Henüz ürün yok. \"Yeni Ürün\" ile ekleyin.")));
+      tbody.append(h("tr", {}, h("td", { colSpan: 5, class: "empty" }, products.length ? "Aramaya uyan ürün yok." : "Henüz ürün yok. \"Yeni Ürün\" ile ekleyin.")));
     }
     info.textContent =
       found.length > MAX_ROWS
         ? `${found.length} ürün bulundu, ilk ${MAX_ROWS} tanesi gösteriliyor. Aramayı daraltın.`
-        : `${found.length} / ${products.length} ürün`;
+        : `${found.length} / ${products.length} ürün` + (outOfStock.checked ? " (stoğu bitenler)" : "");
   }
 
   const el = h(
@@ -113,6 +125,7 @@ export function createProductsScreen(): Screen {
       "div",
       { class: "toolbar" },
       search,
+      h("label", { class: "check" }, outOfStock, " Stoğu bitenler"),
       h("button", { class: "btn btn-primary", onclick: () => run(add) }, "Yeni Ürün"),
       h("button", { class: "btn", onclick: () => fileInput.click() }, "CSV İçe Aktar"),
       h("a", { class: "btn", href: "/api/products/export", download: "urunler.csv" }, "CSV Dışa Aktar"),
@@ -126,7 +139,7 @@ export function createProductsScreen(): Screen {
       h(
         "table",
         { class: "table" },
-        h("thead", {}, h("tr", {}, h("th", {}, "Barkod"), h("th", {}, "Ad"), h("th", { class: "num" }, "Fiyat"), h("th", {}, ""))),
+        h("thead", {}, h("tr", {}, h("th", {}, "Barkod"), h("th", {}, "Ad"), h("th", { class: "num" }, "Fiyat"), h("th", { class: "num" }, "Stok"), h("th", {}, ""))),
         tbody,
       ),
     ),

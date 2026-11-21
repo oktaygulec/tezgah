@@ -5,6 +5,7 @@
 import { ean13Warning } from "../shared/barcode";
 import { formatMoney, formatMoneyPlain, parseMoney } from "../shared/money";
 import type { Product } from "../shared/types";
+import { parseQuantity, stockQuantityError } from "../shared/stock";
 import { barcodeError, MAX_BARCODE_LENGTH, MAX_NAME_LENGTH, nameError, priceTextError } from "../shared/validate";
 import { api, findProduct } from "./api";
 import { errorMessage, h, openDialog } from "./ui";
@@ -47,6 +48,8 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
       placeholder: "12,50",
       value: product ? formatMoneyPlain(product.price_kurus) : "",
     });
+    // Starting stock: only for a new product. Later changes go through the Stok dialog (they need a history).
+    const stock = h("input", { class: "input input-number", name: "stock", inputMode: "numeric", autocomplete: "off", placeholder: "0" });
     const formError = h("div", { class: "form-error", role: "alert" });
     const saveButton = h("button", { type: "submit", class: "btn btn-primary" }, "Kaydet");
 
@@ -55,6 +58,7 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
     const barcodeField = field("Barkod", h("div", { class: "row" }, barcode, generate), duplicateBox);
     const nameField = field("Ürün adı", name);
     const priceField = field("Fiyat (₺)", price);
+    const stockField = field("Başlangıç stoğu (adet, isteğe bağlı)", stock);
 
     /** The product that already uses the typed barcode (another product), if any. */
     let duplicate: Product | null = null;
@@ -81,7 +85,11 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
       priceField.hint.textContent = !error && parseMoney(price.value) === 0 ? "Fiyat ₺0,00. Doğru mu?" : "";
       return show(priceField, price, error);
     }
-    const checkAll = () => [checkBarcode(), checkName(), checkPrice()];
+    /** Empty means 0. */
+    const stockValue = () => (stock.value.trim() === "" ? 0 : parseQuantity(stock.value));
+    const checkStock = () =>
+      show(stockField, stock, product ? null : Number.isNaN(stockValue()) ? "Stok 0 veya daha büyük bir tam sayı olmalı." : stockQuantityError("set", stockValue()));
+    const checkAll = () => [checkBarcode(), checkName(), checkPrice(), checkStock()];
 
     function renderDuplicate() {
       duplicateBox.hidden = !duplicate;
@@ -122,7 +130,8 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
     });
     name.addEventListener("input", checkName);
     price.addEventListener("input", checkPrice);
-    for (const input of [barcode, name, price]) {
+    stock.addEventListener("input", checkStock);
+    for (const input of [barcode, name, price, stock]) {
       input.addEventListener("blur", () => {
         if (input.value.trim()) touched.add(input);
         checkAll();
@@ -167,19 +176,19 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
         onsubmit: async (e: Event) => {
           e.preventDefault();
           formError.textContent = "";
-          for (const input of [barcode, name, price]) touched.add(input);
+          for (const input of [barcode, name, price, stock]) touched.add(input);
           clearTimeout(lookupTimer);
           await lookupBarcode();
           const errors = checkAll();
           const firstBad = errors.findIndex(Boolean);
           if (firstBad >= 0) {
-            [barcode, name, price][firstBad]!.focus();
+            [barcode, name, price, stock][firstBad]!.focus();
             return;
           }
           const input = { barcode: barcode.value.trim(), name: name.value.trim(), price_kurus: parseMoney(price.value)! };
           saveButton.disabled = true;
           try {
-            close({ saved: product ? await api.updateProduct(product.id, input) : await api.createProduct(input) });
+            close({ saved: product ? await api.updateProduct(product.id, input) : await api.createProduct(input, stockValue()) });
           } catch (err) {
             formError.textContent = errorMessage(err);
           } finally {
@@ -191,6 +200,7 @@ function openProductDialog(opts: { product?: Product; barcode?: string }): Promi
       barcodeField.wrap,
       nameField.wrap,
       priceField.wrap,
+      !product && stockField.wrap,
       formError,
       h("div", { class: "dialog-actions" }, h("button", { type: "button", class: "btn", onclick: () => close(null) }, "Vazgeç"), saveButton),
     );
