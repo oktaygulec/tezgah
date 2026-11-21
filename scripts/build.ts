@@ -1,7 +1,7 @@
 // Builds the Windows and macOS executables into dist/.
 // The web app (HTML, JS, CSS) is bundled into each executable through the HTML import in main.ts.
 
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dir, "..");
@@ -24,4 +24,12 @@ for (const { target, outfile } of targets) {
     process.exit(1);
   }
 }
-console.log("\nDone.");
+// The in-app updater checks downloads against this file. Upload it with every release.
+const sums = targets
+  .map(({ outfile }) => {
+    const hash = new Bun.CryptoHasher("sha256").update(readFileSync(path.join(root, outfile))).digest("hex");
+    return `${hash}  ${path.basename(outfile)}`;
+  })
+  .join("\n");
+writeFileSync(path.join(root, "dist/SHA256SUMS.txt"), sums + "\n");
+console.log(`\n${sums}\nDone.`);

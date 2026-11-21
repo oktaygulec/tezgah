@@ -113,6 +113,14 @@ export function validateSettings(s: Settings): string | null {
   return null;
 }
 
+export interface UpdateInfo {
+  current: string;
+  latest: string;
+  available: boolean;
+  notes: string;
+  url: string;
+}
+
 export interface HealthResponse {
   app: "tezgah";
   ok: true;

@@ -127,6 +127,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); }
 /* ----- forms & dialogs ----- */
 .form { display: flex; flex-direction: column; gap: 10px; }
 .form h2 { margin: 0; }
+.form > a.btn { align-self: flex-start; }
 .field { display: flex; flex-direction: column; gap: 4px; font-weight: 600; }
 .field-inline { flex-direction: row; align-items: center; justify-content: space-between; }
 .check { display: flex; align-items: center; gap: 8px; }
@@ -145,3 +146,10 @@ html, body { margin: 0; height: 100%; background: var(--bg); }
 .toast { padding: 12px 16px; border-radius: var(--radius); color: #fff; background: #374151; font-size: 17px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); }
 .toast-error { background: var(--danger); }
 .toast-success { background: var(--success); }
+
+/* ----- update ----- */
+.update-panel { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.update-panel p { margin: 0; }
+.update-status { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; font-size: 17px; }
+.update-status:empty { display: none; }
+.update-notes { white-space: pre-wrap; font: inherit; font-size: 15px; margin: 0; max-height: 160px; overflow: auto; background: #f9fafb; padding: 8px; border-radius: 6px; width: 100%; }

@@ -4,6 +4,7 @@ import { SETTING_LABELS, SETTING_RANGES, validateSettings, type NumericSettingKe
 import { api } from "../api";
 import { getSettings, setSettings } from "../state";
 import { h, run, toast, type Screen } from "../ui";
+import { createUpdatePanel } from "../updater";
 import { labelPreview } from "./labels";
 
 const PREVIEW_PRODUCT = { barcode: "2000000000015", name: "Örnek Ürün Adı Uzun Olabilir", price_kurus: 12950 };
@@ -28,6 +29,7 @@ export function createSettingsScreen(): Screen {
   const showPrice = h("input", { type: "checkbox" });
   const preview = h("div", { class: "label-preview" });
   const formError = h("div", { class: "form-error", role: "alert" });
+  const versionText = h("div", {});
 
   for (const [key] of NUMBER_FIELDS) {
     const [min, max] = SETTING_RANGES[key];
@@ -87,6 +89,9 @@ export function createSettingsScreen(): Screen {
     h("h2", {}, "Yedek"),
     h("p", { class: "muted" }, "Veritabanının şu anki hâlini bilgisayarınıza indirir."),
     h("a", { class: "btn", href: "/api/backup", download: "" }, "Veritabanı yedeği indir"),
+    h("h2", {}, "Güncelleme"),
+    versionText,
+    createUpdatePanel(),
   );
 
   form.addEventListener("input", renderPreview);
@@ -98,6 +103,7 @@ export function createSettingsScreen(): Screen {
     show: () =>
       run(async () => {
         setSettings(await api.settings());
+        versionText.textContent = `Kurulu sürüm: ${(await api.health()).version}`;
         fill(getSettings());
         renderPreview();
       }),

@@ -8,6 +8,8 @@ import type {
   Product,
   ProductInput,
   Settings,
+  HealthResponse,
+  UpdateInfo,
 } from "../shared/types";
 
 export class ApiError extends Error {
@@ -56,6 +58,9 @@ export const api = {
   createOrder: (lines: NewOrderLine[]) => request<OrderWithLines>("POST", "/api/orders", { lines }),
   settings: () => request<Settings>("GET", "/api/settings"),
   saveSettings: (s: Settings) => request<Settings>("PUT", "/api/settings", s),
+  health: () => request<HealthResponse>("GET", "/api/health"),
+  checkUpdate: () => request<UpdateInfo>("GET", "/api/update"),
+  installUpdate: () => request<{ ok: true; version: string }>("POST", "/api/update"),
 };
 
 /** Looks up a barcode; null when it is not registered. Other errors are thrown. */
