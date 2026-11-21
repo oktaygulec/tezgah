@@ -38,6 +38,24 @@ export async function isTezgahRunning(port: number): Promise<boolean> {
   }
 }
 
+/**
+ * True when some program accepts connections on this port (IPv4 or IPv6 loopback).
+ * We check this before binding because the operating system does not always refuse
+ * a second bind to the same port (macOS accepted it in testing).
+ */
+export async function isPortTaken(port: number): Promise<boolean> {
+  for (const hostname of ["127.0.0.1", "::1"]) {
+    try {
+      const socket = await Bun.connect({ hostname, port, socket: { data() {}, error() {} } });
+      socket.end();
+      return true;
+    } catch {
+      // connection refused: nothing listens on this address
+    }
+  }
+  return false;
+}
+
 export function isAddressInUse(e: unknown): boolean {
   const err = e as { code?: string; message?: string };
   return err?.code === "EADDRINUSE" || /in use|EADDRINUSE/i.test(err?.message ?? "");
