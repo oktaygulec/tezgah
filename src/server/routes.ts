@@ -6,15 +6,18 @@ import * as repo from "./db";
 import { HttpError } from "./db";
 import { checkForUpdate, installUpdate, VERSION } from "./update";
 
-type Handler = (req: Request & { params: Record<string, string> }) => Response | Promise<Response>;
+type Handler = (
+  req: Request & { params: Record<string, string> },
+  server: Bun.Server<undefined>,
+) => Response | Promise<Response>;
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 
 /** Turns thrown errors into a JSON error with a Turkish message, and logs them. */
 function safe(handler: Handler): Handler {
-  return async (req) => {
+  return async (req, server) => {
     try {
-      return await handler(req);
+      return await handler(req, server);
     } catch (e) {
       const where = `${req.method} ${new URL(req.url).pathname}`;
       if (e instanceof HttpError) {
@@ -103,7 +106,9 @@ export function apiRoutes(db: Database, hooks: AppHooks) {
     },
     "/api/update": {
       GET: safe(async () => json(await checkForUpdate())),
-      POST: safe(async () => {
+      POST: safe(async (req, server) => {
+        // The download can take minutes; Bun closes idle requests after 10 s by default.
+        server.timeout(req, 0);
         const version = await installUpdate();
         setTimeout(() => hooks.restart(), 300); // send the answer first
         return json({ ok: true, version });

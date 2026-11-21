@@ -1,9 +1,9 @@
 // "Güncelleme" panel: check GitHub for a newer release, install it, wait for the restart.
 
-import { api } from "./api";
+import { api, ApiError } from "./api";
 import { confirmDialog, errorMessage, h } from "./ui";
 
-const RESTART_TIMEOUT_MS = 90_000;
+const RESTART_TIMEOUT_MS = 5 * 60_000;
 
 export function createUpdatePanel(): HTMLElement {
   const status = h("div", { class: "update-status" });
@@ -53,8 +53,14 @@ export function createUpdatePanel(): HTMLElement {
     checkButton.disabled = true;
     show("plain", "İndiriliyor ve doğrulanıyor… Bu işlem internet hızına göre birkaç dakika sürebilir.");
     try {
-      const { version } = await api.installUpdate();
-      show("plain", `Sürüm ${version} kuruldu. Program yeniden başlıyor…`);
+      let version = latest;
+      try {
+        version = (await api.installUpdate()).version;
+      } catch (e) {
+        // A lost connection (status 0) does not mean the update failed: wait for the new version.
+        if (!(e instanceof ApiError && e.status === 0)) throw e;
+      }
+      show("plain", `Sürüm ${version} kuruluyor. Program yeniden başlıyor…`);
       await waitForVersion(version);
       location.reload();
     } catch (e) {
@@ -77,5 +83,5 @@ async function waitForVersion(version: string) {
       // the server is restarting: keep waiting
     }
   }
-  throw new Error("Program yeniden başlamadı. Tezgah'ı elle açın (Tezgah.exe).");
+  throw new Error("Güncelleme bitmedi veya program yeniden başlamadı. Tezgah.exe'yi kapatıp yeniden açın.");
 }
