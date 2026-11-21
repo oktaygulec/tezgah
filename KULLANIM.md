@@ -48,12 +48,13 @@ Sayfa yenilenirse yarım kalan sipariş kaybolmaz.
 
 ## Ürünler
 
-- **Yeni Ürün**: barkod, ad ve fiyat girin. Fiyatı `12,50` veya `12.50` olarak yazabilirsiniz.
+- **Yeni Ürün**: barkod, ad ve satış fiyatı girin. Fiyatı `12,50` veya `12.50` olarak yazabilirsiniz.
+- **Alış fiyatı** isteğe bağlıdır. Girerseniz form adet başı kârı gösterir. Raporlar kârı bu fiyatla hesaplar. Alış fiyatı etikette ve Fiyat Gör ekranında görünmez.
 - Ürünün barkodu yoksa **Barkod oluştur** düğmesine basın. Program dükkana özel bir barkod verir.
 - Barkod başka bir üründe kayıtlıysa form hemen uyarır ve o ürünün adını gösterir. Bu durumda ürün kaydedilmez. **Mevcut ürünü düzenle** düğmesi kayıtlı ürünü açar.
 - Hatalı bir alan kırmızı olur. Alanın altında ne yapmanız gerektiği yazar.
 - **Düzenle** ve **Sil** düğmeleri her satırdadır. Siparişte kullanılmış bir ürün silinemez.
-- **CSV İçe Aktar**: `barkod;ad;fiyat` veya `barkod;ad;fiyat;stok` biçiminde bir dosya seçin. Hatalı satırlar ekranda listelenir.
+- **CSV İçe Aktar**: `barkod;ad;fiyat`, `barkod;ad;fiyat;stok` veya `barkod;ad;fiyat;stok;alis_fiyati` biçiminde bir dosya seçin. Boş bırakılan stok veya alış fiyatı hücresi kayıtlı değeri değiştirmez. Hatalı satırlar ekranda listelenir.
 - **CSV Dışa Aktar**: tüm ürünleri Excel ile açılabilen bir dosyaya kaydeder.
 
 ## Stok
@@ -65,6 +66,13 @@ Her ürünün stoğu adet olarak tutulur. Stok **Ürünler** listesinde **Stok**
 - Sipariş iptal edilince satılan adetler stoğa geri eklenir.
 - Yeni ürün eklerken **Başlangıç stoğu** yazabilirsiniz.
 - Sadece stoğu biten ürünleri görmek için **Ürünler** ekranında **Stoğu bitenler** kutusunu işaretleyin.
+
+### Azalan stok
+
+**Azalan Stok** sekmesi stoğu 5 veya daha az olan ürünleri gösterir. En az stoklu ürün en üsttedir. **Son 30 günde satılan** sütunu ne kadar sipariş vermeniz gerektiğini tahmin etmenize yardım eder.
+
+- **Sipariş listesi indir (CSV)** düğmesi listeyi tedarikçiye göndermek için bir dosyaya kaydeder.
+- Sınırı (5) **Ayarlar → Stok → Azalan stok sınırı** ile değiştirebilirsiniz.
 
 ### Mal girişi (okutarak)
 
@@ -110,6 +118,24 @@ Tezgah etiketleri yazıcıya doğrudan gönderir. Yazdırma penceresi açılmaz.
 Yazıcı listede yoksa yazıcıyı açın, USB kablosunu kontrol edin ve **Yenile** düğmesine basın.
 
 Bu yöntem TSPL dilini anlayan termal yazıcılar içindir (Xprinter, TSC ve benzerleri). Yazıcı başka bir dil kullanıyorsa listeden **Yazıcı yok** seçeneğini seçin. Bu durumda Tezgah tarayıcının yazdırma penceresini kullanır.
+
+## Raporlar
+
+1. **Raporlar** sekmesini açın.
+2. Dönemi seçin: **Gün**, **Hafta**, **Ay** veya **Yıl**.
+3. Tarihi seçin. **◀** ve **▶** düğmeleri önceki ve sonraki döneme geçer.
+
+Rapor şunları gösterir:
+
+- **Ciro, brüt kâr, kâr marjı, alış maliyeti, sipariş sayısı, satılan adet, ortalama sepet, iptal edilen siparişler.** Her değerin altında önceki döneme göre değişim yazar.
+- **Dağılım:** günlük raporda saatler, haftalık ve aylık raporda günler, yıllık raporda aylar.
+- **En çok satan ürünler:** adede, ciroya veya kâra göre sıralanır. Ayın en çok satan ürünü için **Ay** seçin.
+- **Stok değeri:** stoktaki malın alış ve satış fiyatıyla değeri.
+- **Hiç satılmayan stoklu ürünler:** dönem içinde hiç satılmayan, stokta bekleyen ürünler.
+
+İptal edilen siparişler satış toplamlarına dahil değildir.
+
+Kâr, satış anındaki alış fiyatıyla hesaplanır. Alış fiyatı girilmemiş ürünlerin satışı kâra dahil edilmez; rapor bu tutarı sarı bir notla ayrıca gösterir. Alış fiyatını sonradan girmek eski satışları değiştirmez.
 
 ## Etiket yazdırma
 

@@ -41,6 +41,11 @@ HTML import in `src/server/main.ts`. The UI uses system fonts, so there are no f
   (`initial`, `receive`, `remove`, `count`, `sale`, `sale_cancel`, `import`). A completed order lowers
   the stock, a cancel gives it back, and a delete of a cancelled order changes nothing. Stock may go
   below zero: a sale is never blocked.
+- Purchase price: `products.cost_kurus` is optional (NULL = not known). It is copied to
+  `order_lines.unit_cost_kurus` at sale time. Reports count profit only for lines with a known cost and
+  show the rest as `unknown_cost_revenue_kurus`.
+- Reports (`src/server/reports.ts`, `src/shared/report.ts`): Istanbul calendar days, Monday-start weeks,
+  cancelled orders left out. Breakdown rows are hours (day), days (week, month) or months (year).
 - Order numbers never repeat: a counter table keeps the highest number, also after a delete.
 - Money is integer kuruş. Timestamps are ISO 8601 UTC, shown in `Europe/Istanbul`.
 
@@ -96,11 +101,12 @@ For tests, `TEZGAH_UPDATE_URL` points the updater at another "latest release" JS
 ```
 src/server/      main.ts (start-up, port loop), routes.ts (JSON API), db.ts (SQLite schema + queries),
                  backup.ts, system.ts (data folder, browser open, port probes), update.ts (self-update),
-                 printer.ts (printer list, RAW print jobs), stock.ts (stock adjust, goods in, history)
+                 printer.ts (printer list, RAW print jobs), stock.ts (stock adjust, goods in, history),
+                 reports.ts (sales report, low stock)
 src/web/         index.html, app.ts (tabs), api.ts, ui.ts (DOM helpers, dialogs, scan focus),
                  label.ts (label drawing), productForm.ts, stockDialog.ts, search.ts, state.ts, updater.ts,
-                 screens/ (sale, price, products, stockIn, labels, orders, settings), styles.css, print.css
-src/shared/      barcode.ts, money.ts, order.ts, csv.ts, stock.ts, time.ts, tspl.ts, types.ts, validate.ts
+                 screens/ (sale, price, products, stockIn, lowStock, labels, orders, reports, settings), styles.css, print.css
+src/shared/      barcode.ts, money.ts, order.ts, csv.ts, report.ts, stock.ts, time.ts, tspl.ts, types.ts, validate.ts
 tests/           bun test files
 scripts/build.ts builds both executables
 ```
@@ -113,9 +119,11 @@ scripts/build.ts builds both executables
 | `GET/POST /api/products` | list all / create (optional `stock_qty` = starting stock) |
 | `PUT/DELETE /api/products/:id` | update / delete (409 when the product is on an order) |
 | `GET /api/products/by-barcode/:barcode` | look up (404 when unknown) |
-| `POST /api/products/import` | CSV text body `barkod;ad;fiyat[;stok]`; known barcodes are updated; a `stok` value sets the stock |
-| `GET /api/products/export` | CSV download `barkod;ad;fiyat;stok` (UTF-8 with BOM) |
+| `POST /api/products/import` | CSV text body `barkod;ad;fiyat[;stok[;alis_fiyati]]`; known barcodes are updated; empty optional cells keep the saved value |
+| `GET /api/products/export` | CSV download `barkod;ad;fiyat;stok;alis_fiyati` (UTF-8 with BOM) |
 | `GET/POST /api/products/:id/stock` | stock history (newest first) / `{ mode: add\|remove\|set, quantity, note }` |
+| `GET /api/stock/low` | products with `stock_qty <= low_stock_threshold` (setting, default 5), with `sold_30d` |
+| `GET /api/reports/sales?period=day\|week\|month\|year&date=YYYY-MM-DD` | totals, previous-period totals, breakdown, products sold, unsold products, stock value |
 | `POST /api/stock/receive` | goods in: `{ lines: [{ product_id, quantity }], note }`, one transaction |
 | `GET /api/barcode/next` | next free in-store EAN-13 (`2` + 11-digit sequence + check digit) |
 | `GET/POST /api/orders` | list (`?day=YYYY-MM-DD`, Istanbul day; no day = latest 200) / create |
