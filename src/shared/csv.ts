@@ -1,6 +1,7 @@
-// Product CSV: "barkod;ad;fiyat", semicolon separated, UTF-8 with or without BOM.
+// Product CSV: "barkod;ad;fiyat" with an optional 4th column "stok". Semicolon separated, UTF-8 with or without BOM.
 
 import { formatMoneyPlain, parseMoney } from "./money";
+import { MAX_STOCK_QUANTITY } from "./stock";
 import { barcodeError, nameError } from "./validate";
 
 export interface CsvProductRow {
@@ -8,6 +9,8 @@ export interface CsvProductRow {
   barcode: string;
   name: string;
   price_kurus: number;
+  /** Set when the row has a value in the "stok" column. */
+  stock_qty?: number;
 }
 
 export interface CsvRowError {
@@ -64,16 +67,23 @@ export function parseProductCsv(text: string): CsvParseResult {
     if (index === 0 && fields[0]?.toLocaleLowerCase("tr-TR") === "barkod") return; // header
 
     const fail = (reason: string) => errors.push({ line, text: raw, reason });
-    if (fields.length !== 3) return fail(`3 sütun olmalı (barkod;ad;fiyat), ${fields.length} sütun var`);
-    const [barcode, name, priceText] = fields as [string, string, string];
+    if (fields.length !== 3 && fields.length !== 4) {
+      return fail(`3 veya 4 sütun olmalı (barkod;ad;fiyat;stok), ${fields.length} sütun var`);
+    }
+    const [barcode, name, priceText, stockText = ""] = fields as [string, string, string, string?];
     const fieldError = barcodeError(barcode) ?? nameError(name);
     if (fieldError) return fail(fieldError);
     const price = parseMoney(priceText);
     if (price === null) return fail(`Fiyat anlaşılamadı: "${priceText}"`);
     const firstLine = seen.get(barcode);
+    let stock: number | undefined;
+    if (stockText !== "") {
+      stock = /^-?\d+$/.test(stockText) ? Number(stockText) : Number.NaN;
+      if (!Number.isSafeInteger(stock) || Math.abs(stock) > MAX_STOCK_QUANTITY) return fail(`Stok tam sayı olmalı: "${stockText}"`);
+    }
     if (firstLine !== undefined) return fail(`Bu barkod dosyada ${firstLine}. satırda da var`);
     seen.set(barcode, line);
-    rows.push({ line, barcode, name, price_kurus: price });
+    rows.push(stock === undefined ? { line, barcode, name, price_kurus: price } : { line, barcode, name, price_kurus: price, stock_qty: stock });
   });
 
   return { rows, errors };
@@ -84,10 +94,10 @@ function csvField(value: string): string {
 }
 
 /** CSV text with BOM so that Excel opens Turkish characters correctly. */
-export function productsToCsv(products: { barcode: string; name: string; price_kurus: number }[]): string {
-  const lines = ["barkod;ad;fiyat"];
+export function productsToCsv(products: { barcode: string; name: string; price_kurus: number; stock_qty: number }[]): string {
+  const lines = ["barkod;ad;fiyat;stok"];
   for (const p of products) {
-    lines.push([csvField(p.barcode), csvField(p.name), formatMoneyPlain(p.price_kurus)].join(";"));
+    lines.push([csvField(p.barcode), csvField(p.name), formatMoneyPlain(p.price_kurus), String(p.stock_qty)].join(";"));
   }
   return "﻿" + lines.join("\r\n") + "\r\n";
 }

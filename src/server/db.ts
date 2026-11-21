@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { nextInStoreEan13 } from "../shared/barcode";
 import { parseProductCsv } from "../shared/csv";
 import { lineTotal } from "../shared/order";
+import { MAX_STOCK_QUANTITY, type StockReason } from "../shared/stock";
 import { istanbulDayRange } from "../shared/time";
 import { barcodeError, nameError, priceKurusError } from "../shared/validate";
 import {
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS products (
   barcode TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   price_kurus INTEGER NOT NULL CHECK (price_kurus >= 0),
+  stock_qty INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -56,6 +58,17 @@ CREATE TABLE IF NOT EXISTS order_lines (
 );
 CREATE INDEX IF NOT EXISTS order_lines_order ON order_lines(order_id);
 CREATE INDEX IF NOT EXISTS order_lines_product ON order_lines(product_id);
+CREATE TABLE IF NOT EXISTS stock_movements (
+  id INTEGER PRIMARY KEY,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  change INTEGER NOT NULL,
+  stock_after INTEGER NOT NULL,
+  reason TEXT NOT NULL,
+  order_no INTEGER,
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS stock_movements_product ON stock_movements(product_id, id);
 CREATE TABLE IF NOT EXISTS counters (
   name TEXT PRIMARY KEY,
   value INTEGER NOT NULL
@@ -77,13 +90,33 @@ export function openDatabase(file: string): Database {
 
 /** Brings a database made by an older version up to date. */
 function migrate(db: Database) {
-  const columns = db.query("PRAGMA table_info(orders)").all() as { name: string }[];
-  if (!columns.some((c) => c.name === "cancelled_at")) {
-    db.run("ALTER TABLE orders ADD COLUMN cancelled_at TEXT"); // added in 1.2.0
-  }
+  const has = (table: string, column: string) =>
+    (db.query(`PRAGMA table_info(${table})`).all() as { name: string }[]).some((c) => c.name === column);
+  if (!has("orders", "cancelled_at")) db.run("ALTER TABLE orders ADD COLUMN cancelled_at TEXT"); // added in 1.2.0
+  if (!has("products", "stock_qty")) db.run("ALTER TABLE products ADD COLUMN stock_qty INTEGER NOT NULL DEFAULT 0"); // added in 1.3.0
 }
 
 const now = () => new Date().toISOString();
+
+// ---------- stock (low level; the user-facing functions are in stock.ts) ----------
+
+/** Changes the stock of one product and records the movement. Returns the new stock. */
+export function applyStockChange(
+  db: Database,
+  productId: number,
+  change: number,
+  reason: StockReason,
+  extra: { note?: string; orderNo?: number } = {},
+): number {
+  const row = db.query("UPDATE products SET stock_qty = stock_qty + ? WHERE id = ? RETURNING stock_qty").get(change, productId) as {
+    stock_qty: number;
+  } | null;
+  if (!row) throw new HttpError(404, "Ürün bulunamadı.");
+  db.query(
+    "INSERT INTO stock_movements (product_id, change, stock_after, reason, order_no, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  ).run(productId, change, row.stock_qty, reason, extra.orderNo ?? null, extra.note ?? "", now());
+  return row.stock_qty;
+}
 
 // ---------- products ----------
 
@@ -119,12 +152,25 @@ function assertBarcodeFree(db: Database, barcode: string, exceptId?: number) {
   }
 }
 
-export function createProduct(db: Database, input: ProductInput): Product {
+/** Optional starting stock for a new product: a whole number from 0 up. */
+export function validateInitialStock(value: unknown): number {
+  if (value === undefined || value === null) return 0;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > MAX_STOCK_QUANTITY) {
+    throw new HttpError(400, "Başlangıç stoğu 0 veya daha büyük bir tam sayı olmalı.");
+  }
+  return value;
+}
+
+export function createProduct(db: Database, input: ProductInput, initialStock = 0): Product {
   assertBarcodeFree(db, input.barcode);
   const t = now();
-  return db
-    .query("INSERT INTO products (barcode, name, price_kurus, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING *")
-    .get(input.barcode, input.name, input.price_kurus, t, t) as Product;
+  return db.transaction(() => {
+    const product = db
+      .query("INSERT INTO products (barcode, name, price_kurus, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING *")
+      .get(input.barcode, input.name, input.price_kurus, t, t) as Product;
+    if (initialStock !== 0) product.stock_qty = applyStockChange(db, product.id, initialStock, "initial");
+    return product;
+  })();
 }
 
 export function updateProduct(db: Database, id: number, input: ProductInput): Product {
@@ -139,7 +185,10 @@ export function deleteProduct(db: Database, id: number): void {
   getProduct(db, id);
   const used = db.query("SELECT COUNT(*) AS n FROM order_lines WHERE product_id = ?").get(id) as { n: number };
   if (used.n > 0) throw new HttpError(409, "Bu ürün bir siparişte kullanıldığı için silinemez.");
-  db.query("DELETE FROM products WHERE id = ?").run(id);
+  db.transaction(() => {
+    db.query("DELETE FROM stock_movements WHERE product_id = ?").run(id); // the history goes with the product
+    db.query("DELETE FROM products WHERE id = ?").run(id);
+  })();
 }
 
 export function nextBarcode(db: Database): string {
@@ -149,26 +198,36 @@ export function nextBarcode(db: Database): string {
   return nextInStoreEan13(rows.map((r) => r.barcode));
 }
 
-/** Imports CSV text. A known barcode updates that product; a new barcode adds a product. */
+/**
+ * Imports CSV text. A known barcode updates that product; a new barcode adds a product.
+ * When the optional "stok" column has a value, the stock is set to it (recorded as a movement).
+ */
 export function importProductsCsv(db: Database, text: string): ImportResult {
   const { rows, errors } = parseProductCsv(text);
   const result: ImportResult = { added: 0, updated: 0, failed: [...errors] };
   const t = now();
-  const findStmt = db.query("SELECT id FROM products WHERE barcode = ?");
+  const findStmt = db.query("SELECT id, stock_qty FROM products WHERE barcode = ?");
   const insertStmt = db.query(
-    "INSERT INTO products (barcode, name, price_kurus, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    "INSERT INTO products (barcode, name, price_kurus, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING id",
   );
   const updateStmt = db.query("UPDATE products SET name = ?, price_kurus = ?, updated_at = ? WHERE id = ?");
 
   db.transaction(() => {
     for (const row of rows) {
-      const existing = findStmt.get(row.barcode) as { id: number } | null;
+      const existing = findStmt.get(row.barcode) as { id: number; stock_qty: number } | null;
+      let id: number;
+      let current = 0;
       if (existing) {
         updateStmt.run(row.name, row.price_kurus, t, existing.id);
+        id = existing.id;
+        current = existing.stock_qty;
         result.updated++;
       } else {
-        insertStmt.run(row.barcode, row.name, row.price_kurus, t, t);
+        id = (insertStmt.get(row.barcode, row.name, row.price_kurus, t, t) as { id: number }).id;
         result.added++;
+      }
+      if (row.stock_qty !== undefined && row.stock_qty !== current) {
+        applyStockChange(db, id, row.stock_qty - current, "import");
       }
     }
   })();
@@ -223,20 +282,29 @@ export function createOrder(db: Database, input: unknown): OrderWithLines {
     );
     for (const l of priced) {
       insertLine.run(order.id, l.product_id, l.barcode, l.name, l.unit_price_kurus, l.quantity, l.line_total_kurus);
+      applyStockChange(db, l.product_id, -l.quantity, "sale", { orderNo: next });
     }
     return getOrder(db, order.id);
   })();
 }
 
-/** Marks a saved order as cancelled. The order and its lines stay for the record. */
+/** Marks a saved order as cancelled and gives the sold pieces back to stock. The order stays for the record. */
 export function cancelOrder(db: Database, id: number): OrderWithLines {
   const order = getOrder(db, id);
   if (order.cancelled_at) throw new HttpError(409, `Sipariş No ${order.order_no} zaten iptal edilmiş.`);
-  db.query("UPDATE orders SET cancelled_at = ? WHERE id = ?").run(now(), id);
+  db.transaction(() => {
+    db.query("UPDATE orders SET cancelled_at = ? WHERE id = ?").run(now(), id);
+    for (const line of order.lines) {
+      applyStockChange(db, line.product_id, line.quantity, "sale_cancel", { orderNo: order.order_no });
+    }
+  })();
   return getOrder(db, id);
 }
 
-/** Permanently deletes an order and its lines. Only a cancelled order can be deleted. */
+/**
+ * Permanently deletes an order and its lines. Only a cancelled order can be deleted;
+ * its stock was already given back at cancel time, so the stock does not change here.
+ */
 export function deleteOrder(db: Database, id: number): void {
   const order = getOrder(db, id);
   if (!order.cancelled_at) throw new HttpError(409, "Yalnızca iptal edilmiş bir sipariş silinebilir. Önce siparişi iptal edin.");

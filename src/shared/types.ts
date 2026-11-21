@@ -5,6 +5,8 @@ export interface Product {
   barcode: string;
   name: string;
   price_kurus: number;
+  /** Pieces in stock. Can be below zero when more was sold than recorded. */
+  stock_qty: number;
   created_at: string;
   updated_at: string;
 }

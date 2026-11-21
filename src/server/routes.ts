@@ -7,6 +7,7 @@ import { HttpError } from "./db";
 import { buildTspl, bytesPerRow } from "../shared/tspl";
 import type { PrintLabelInput } from "../shared/types";
 import { listPrinters, sendRaw } from "./printer";
+import * as stock from "./stock";
 import { checkForUpdate, installUpdate, VERSION } from "./update";
 
 type Handler = (
@@ -84,7 +85,11 @@ export function apiRoutes(db: Database, hooks: AppHooks) {
     },
     "/api/products": {
       GET: safe(() => json(repo.listProducts(db))),
-      POST: safe(async (req) => json(repo.createProduct(db, repo.validateProductInput(await readJson(req))), 201)),
+      POST: safe(async (req) => {
+        const body = await readJson(req);
+        const initial = repo.validateInitialStock((body as { stock_qty?: unknown })?.stock_qty);
+        return json(repo.createProduct(db, repo.validateProductInput(body), initial), 201);
+      }),
     },
     "/api/products/:id": {
       PUT: safe(async (req) =>
@@ -94,6 +99,13 @@ export function apiRoutes(db: Database, hooks: AppHooks) {
         repo.deleteProduct(db, idParam(req.params.id));
         return json({ ok: true });
       }),
+    },
+    "/api/products/:id/stock": {
+      GET: safe((req) => json(stock.listMovements(db, idParam(req.params.id)))),
+      POST: safe(async (req) => json(stock.adjustStock(db, idParam(req.params.id), await readJson(req)))),
+    },
+    "/api/stock/receive": {
+      POST: safe(async (req) => json(stock.receiveStock(db, await readJson(req)))),
     },
     "/api/products/by-barcode/:barcode": {
       GET: safe((req) => {
