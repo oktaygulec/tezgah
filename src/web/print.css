@@ -1,0 +1,47 @@
+/* Label layout (preview and print). All sizes of a label are in mm, set inline from the settings.
+   The page size (@page) is added at print time from the settings, see setPageSize() in label.ts. */
+
+.label {
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  text-align: center;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.label-name {
+  width: 100%;
+  line-height: 1.15;
+  font-weight: 600;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  word-break: break-word;
+}
+.label-price { font-weight: 800; line-height: 1.1; white-space: nowrap; }
+.label-barcode { display: block; flex: none; }
+
+/* ----- print view on screen ----- */
+#print-root { display: none; }
+body.printing #app { display: none; }
+body.printing #print-root { display: block; }
+.print-toolbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #fff; border-bottom: 1px solid #d1d5db; font-size: 16px; }
+.print-labels { display: flex; flex-wrap: wrap; gap: 6mm; padding: 16px; }
+.print-labels .label { outline: 1px dashed #9ca3af; }
+
+@media print {
+  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; height: auto; }
+  .no-print, #toasts { display: none !important; }
+  .print-labels { display: block; padding: 0; gap: 0; }
+  .print-labels .label { outline: none; page-break-after: always; break-after: page; }
+  .print-labels .label:last-child { page-break-after: auto; break-after: auto; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

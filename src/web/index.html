@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tezgah</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./print.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar no-print">
+        <div class="brand" id="shop-name">Tezgah</div>
+        <nav class="tabs" id="tabs">
+          <a href="#satis" data-screen="satis">Satış</a>
+          <a href="#fiyat" data-screen="fiyat">Fiyat Gör</a>
+          <a href="#urunler" data-screen="urunler">Ürünler</a>
+          <a href="#etiket" data-screen="etiket">Etiket</a>
+          <a href="#siparisler" data-screen="siparisler">Siparişler</a>
+          <a href="#ayarlar" data-screen="ayarlar">Ayarlar</a>
+        </nav>
+      </header>
+      <main id="screens"></main>
+    </div>
+    <div id="print-root"></div>
+    <div id="toasts" class="no-print" aria-live="polite"></div>
+    <script type="module" src="./app.ts"></script>
+  </body>
+</html>
