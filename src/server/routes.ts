@@ -4,8 +4,7 @@ import { backupStamp } from "../shared/time";
 import type { HealthResponse } from "../shared/types";
 import * as repo from "./db";
 import { HttpError } from "./db";
-
-export const VERSION = "1.0.0";
+import { checkForUpdate, installUpdate, VERSION } from "./update";
 
 type Handler = (req: Request & { params: Record<string, string> }) => Response | Promise<Response>;
 
@@ -17,11 +16,13 @@ function safe(handler: Handler): Handler {
     try {
       return await handler(req);
     } catch (e) {
+      const where = `${req.method} ${new URL(req.url).pathname}`;
       if (e instanceof HttpError) {
-        if (e.status >= 500) console.error(e);
+        if (e.status >= 500) console.error(`${where}: ${e.message}`);
         return json({ error: e.message }, e.status);
       }
-      console.error(`${req.method} ${new URL(req.url).pathname} hata:`, e);
+      // Log the stack as text: printing the error object dumps minified source code.
+      console.error(`${where} hata: ${(e as Error)?.stack ?? String(e)}`);
       return json({ error: `Sunucu hatası: ${(e as Error)?.message ?? String(e)}` }, 500);
     }
   };
@@ -46,7 +47,12 @@ const download = (body: BodyInit, type: string, filename: string) =>
     headers: { "Content-Type": type, "Content-Disposition": `attachment; filename="${filename}"` },
   });
 
-export function apiRoutes(db: Database) {
+export interface AppHooks {
+  /** Stops the server and starts the newly installed executable. */
+  restart(): void;
+}
+
+export function apiRoutes(db: Database, hooks: AppHooks) {
   return {
     "/api/health": {
       GET: safe(() => json({ app: "tezgah", ok: true, version: VERSION } satisfies HealthResponse)),
@@ -94,6 +100,14 @@ export function apiRoutes(db: Database) {
     },
     "/api/backup": {
       GET: safe(() => download(new Uint8Array(db.serialize()), "application/octet-stream", `tezgah-${backupStamp()}.db`)),
+    },
+    "/api/update": {
+      GET: safe(async () => json(await checkForUpdate())),
+      POST: safe(async () => {
+        const version = await installUpdate();
+        setTimeout(() => hooks.restart(), 300); // send the answer first
+        return json({ ok: true, version });
+      }),
     },
     "/api/*": safe(() => json({ error: "Bulunamadı." }, 404)),
   };
