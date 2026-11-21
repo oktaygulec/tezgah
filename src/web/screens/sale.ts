@@ -69,7 +69,7 @@ async function pickFavorite(): Promise<Pick | null> {
     render();
     setTimeout(() => search.focus(), 0);
     return [
-      h("div", { class: "dialog-head" }, h("h2", {}, "Ürün seç"), h("button", { type: "button", class: "btn", onclick: () => close(null) }, "Kapat")),
+      h("div", { class: "dialog-head" }, h("h2", {}, "Ürün seç")),
       search,
       grid,
     ];

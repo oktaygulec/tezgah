@@ -55,6 +55,8 @@ export function openDialog<T>(build: (close: (value: T | null) => void) => Node[
       dialog.close();
     };
     dialog.append(...build(close));
+    // The X sits last in the DOM, so it does not take the first focus from the dialog's own field.
+    dialog.append(h("button", { type: "button", class: "dialog-x", title: "Kapat", "aria-label": "Kapat", onclick: () => close(null) }, "×"));
     dialog.addEventListener("close", () => {
       dialog.remove();
       resolve(result);
