@@ -3,9 +3,9 @@
 import { formatMoney } from "../../shared/money";
 import type { Product, Settings } from "../../shared/types";
 import { api } from "../api";
-import { renderLabel, setPageSize, type LabelProduct } from "../label";
+import { labelElement, renderLabel, setPageSize, toPrintLabel, type LabelProduct } from "../label";
 import { getSettings } from "../state";
-import { h, run, type Screen } from "../ui";
+import { h, run, toast, type Screen } from "../ui";
 import { matchesSearch, sortByName } from "../search";
 
 const MAX_ROWS = 300;
@@ -21,11 +21,12 @@ export function selectForLabel(productId: number) {
 /** Shows previews or warnings for one label. Used here and in Ayarlar. */
 export function labelPreview(product: LabelProduct, settings: Settings = getSettings()): HTMLElement {
   try {
-    const { el, warnings } = renderLabel(product, settings);
+    const label = renderLabel(product, settings);
+    const { warnings } = label;
     return h(
       "div",
       { class: "preview" },
-      h("div", { class: "preview-label" }, el),
+      h("div", { class: "preview-label" }, labelElement(label, settings)),
       ...warnings.map((w) => h("div", { class: "field-warning" }, w)),
     );
   } catch (e) {
@@ -33,13 +34,23 @@ export function labelPreview(product: LabelProduct, settings: Settings = getSett
   }
 }
 
-/** Opens the print-only view with one label per page and starts printing. */
-export function printLabels(items: { product: LabelProduct; copies: number }[]) {
+type PrintItem = { product: LabelProduct; copies: number };
+
+/** Sends the labels straight to the printer chosen in Ayarlar (no print dialog). Returns the label count. */
+export async function printDirect(items: PrintItem[]): Promise<number> {
+  const settings = getSettings();
+  const labels = items.map(({ product, copies }) => toPrintLabel(renderLabel(product, settings), copies));
+  return (await api.print(labels)).count;
+}
+
+/** Opens the print-only view with one label per page and starts the browser print dialog. */
+export function printLabels(items: PrintItem[]) {
   const settings = getSettings();
   const root = document.getElementById("print-root")!;
   const labels = h("div", { class: "print-labels" });
   for (const { product, copies } of items) {
-    for (let i = 0; i < copies; i++) labels.append(renderLabel(product, settings).el);
+    const label = renderLabel(product, settings);
+    for (let i = 0; i < copies; i++) labels.append(labelElement(label, settings));
   }
   const close = () => {
     document.body.classList.remove("printing");
@@ -70,6 +81,8 @@ export function createLabelsScreen(): Screen {
   const preview = h("div", { class: "label-preview" });
   const summary = h("div", { class: "strong" });
   const printButton = h("button", { class: "btn btn-primary btn-xl", onclick: () => run(print) }, "Yazdır");
+  const browserButton = h("button", { class: "btn", onclick: () => run(() => printLabels(requireSelection())) }, "Tarayıcı ile yazdır");
+  const printerInfo = h("div", { class: "muted small" });
   const clearButton = h("button", { class: "btn", onclick: () => { selection.clear(); render(); } }, "Seçimi temizle");
 
   async function load() {
@@ -82,10 +95,26 @@ export function createLabelsScreen(): Screen {
     return products.filter((p) => selection.has(p.id)).map((product) => ({ product, copies: selection.get(product.id)! }));
   }
 
-  function print() {
+  function requireSelection() {
     const items = selected();
     if (items.length === 0) throw new Error("Önce etiketlenecek ürünleri seçin.");
-    printLabels(items);
+    return items;
+  }
+
+  /** One click: direct to the printer when one is chosen in Ayarlar, else the browser dialog. */
+  async function print() {
+    const items = requireSelection();
+    if (!getSettings().printer_name) {
+      printLabels(items);
+      return;
+    }
+    printButton.disabled = true;
+    try {
+      const count = await printDirect(items);
+      toast(`${count} etiket yazıcıya gönderildi.`, "success");
+    } finally {
+      printButton.disabled = false;
+    }
   }
 
   function renderList() {
@@ -133,6 +162,11 @@ export function createLabelsScreen(): Screen {
     const count = items.reduce((n, i) => n + i.copies, 0);
     summary.textContent = items.length ? `${items.length} ürün, toplam ${count} etiket` : "Ürün seçilmedi";
     printButton.disabled = items.length === 0;
+    browserButton.disabled = items.length === 0;
+    const printer = getSettings().printer_name;
+    printerInfo.textContent = printer
+      ? `Yazıcı: ${printer} (doğrudan yazdırma)`
+      : "Yazıcı seçilmedi: Yazdır, tarayıcının yazdırma penceresini açar. Ayarlar ekranından yazıcı seçin.";
     preview.replaceChildren(
       h("div", { class: "muted" }, items.length ? "Önizleme (gerçek boyut):" : "Örnek önizleme (gerçek boyut):"),
       labelPreview(items[0]?.product ?? SAMPLE),
@@ -148,7 +182,7 @@ export function createLabelsScreen(): Screen {
     "section",
     { class: "screen screen-labels" },
     h("div", { class: "labels-left" }, h("div", { class: "toolbar" }, search, clearButton), list),
-    h("div", { class: "labels-right" }, preview, summary, printButton),
+    h("div", { class: "labels-right" }, preview, summary, printButton, printerInfo, browserButton),
   );
 
   return { id: "etiket", el, show: () => run(load) };

@@ -1,33 +1,14 @@
-/* Label layout (preview and print). All sizes of a label are in mm, set inline from the settings.
-   The page size (@page) is added at print time from the settings, see setPageSize() in label.ts. */
+/* Labels are images drawn at 203 dpi (see label.ts). Their size in mm is set inline from the settings.
+   The page size (@page) is added at print time, see setPageSize() in label.ts. Used only for
+   browser printing; direct printing sends the image to the printer without this page. */
 
-.label {
-  box-sizing: border-box;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
+img.label {
+  display: block;
   background: #fff;
-  color: #000;
-  font-family: Arial, Helvetica, sans-serif;
-  text-align: center;
+  image-rendering: pixelated; /* keep each printer dot sharp */
   page-break-inside: avoid;
   break-inside: avoid;
 }
-.label-name {
-  width: 100%;
-  line-height: 1.15;
-  font-weight: 600;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  word-break: break-word;
-}
-.label-price { font-weight: 800; line-height: 1.1; white-space: nowrap; }
-.label-barcode { display: block; flex: none; }
 
 /* ----- print view on screen ----- */
 #print-root { display: none; }
@@ -43,5 +24,4 @@ body.printing #print-root { display: block; }
   .print-labels { display: block; padding: 0; gap: 0; }
   .print-labels .label { outline: none; page-break-after: always; break-after: page; }
   .print-labels .label:last-child { page-break-after: auto; break-after: auto; }
-  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

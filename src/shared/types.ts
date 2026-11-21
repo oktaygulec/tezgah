@@ -64,6 +64,14 @@ export interface Settings {
   name_font_pt: number;
   price_font_pt: number;
   digits_font_pt: number;
+  /** Windows printer name for direct printing. Empty: print through the browser dialog. */
+  printer_name: string;
+  label_gap_mm: number;
+  print_density: number;
+  print_speed: number;
+  print_offset_x_mm: number;
+  print_offset_y_mm: number;
+  print_rotate_180: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -77,6 +85,13 @@ export const DEFAULT_SETTINGS: Settings = {
   name_font_pt: 8,
   price_font_pt: 16,
   digits_font_pt: 7,
+  printer_name: "",
+  label_gap_mm: 2,
+  print_density: 8,
+  print_speed: 4,
+  print_offset_x_mm: 0,
+  print_offset_y_mm: 0,
+  print_rotate_180: false,
 };
 
 export type NumericSettingKey = { [K in keyof Settings]: Settings[K] extends number ? K : never }[keyof Settings];
@@ -90,7 +105,15 @@ export const SETTING_RANGES: Record<NumericSettingKey, [number, number]> = {
   name_font_pt: [4, 30],
   price_font_pt: [4, 60],
   digits_font_pt: [4, 20],
+  label_gap_mm: [0, 20],
+  print_density: [0, 15],
+  print_speed: [1, 6],
+  print_offset_x_mm: [-10, 10],
+  print_offset_y_mm: [-10, 10],
 };
+
+/** Settings that must be whole numbers. */
+const INTEGER_SETTINGS: NumericSettingKey[] = ["print_density", "print_speed"];
 
 export const SETTING_LABELS: Record<NumericSettingKey, string> = {
   label_width_mm: "Etiket genişliği (mm)",
@@ -100,6 +123,11 @@ export const SETTING_LABELS: Record<NumericSettingKey, string> = {
   name_font_pt: "Ürün adı yazı boyu (pt)",
   price_font_pt: "Fiyat yazı boyu (pt)",
   digits_font_pt: "Barkod rakamları yazı boyu (pt)",
+  label_gap_mm: "Etiketler arası boşluk (mm)",
+  print_density: "Baskı koyuluğu (0-15)",
+  print_speed: "Baskı hızı (1-6)",
+  print_offset_x_mm: "Sağa kaydır (mm)",
+  print_offset_y_mm: "Aşağı kaydır (mm)",
 };
 
 /** Validates a settings object; returns a Turkish error text or null. */
@@ -111,8 +139,27 @@ export function validateSettings(s: Settings): string | null {
       return `${SETTING_LABELS[key as NumericSettingKey]}: ${min} ile ${max} arasında olmalı.`;
     }
   }
-  if (typeof s.show_name !== "boolean" || typeof s.show_price !== "boolean") return "Göster seçenekleri hatalı.";
+  for (const key of INTEGER_SETTINGS) {
+    if (!Number.isInteger(s[key])) return `${SETTING_LABELS[key]}: tam sayı olmalı.`;
+  }
+  if (typeof s.show_name !== "boolean" || typeof s.show_price !== "boolean" || typeof s.print_rotate_180 !== "boolean") {
+    return "Seçenek değerleri hatalı.";
+  }
+  if (typeof s.printer_name !== "string" || s.printer_name.length > 200) return "Yazıcı adı hatalı.";
   return null;
+}
+
+export interface PrintLabelInput {
+  /** Base64 of the packed TSPL bitmap (see shared/tspl.ts). */
+  bitmap: string;
+  width: number;
+  height: number;
+  copies: number;
+}
+
+export interface PrinterList {
+  printers: string[];
+  default: string | null;
 }
 
 export interface UpdateInfo {
