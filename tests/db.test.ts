@@ -104,6 +104,9 @@ describe("settings", () => {
     expect(repo.saveSettings(db, { label_width_mm: 50, unknown_key: 1 }).label_width_mm).toBe(50);
     expect(repo.getSettings(db).label_width_mm).toBe(50);
     expect(() => repo.saveSettings(db, { label_width_mm: 2 })).toThrow("genişliği");
+    expect(() => repo.saveSettings(db, { print_density: 7.5 })).toThrow("tam sayı");
+    expect(() => repo.saveSettings(db, { print_offset_x_mm: -11 })).toThrow("Sağa kaydır");
+    expect(repo.saveSettings(db, { printer_name: "Xprinter XP-470B", print_rotate_180: true }).printer_name).toBe("Xprinter XP-470B");
   });
 });
 
@@ -138,6 +141,21 @@ describe("order cancel", () => {
     expect(() => repo.cancelOrder(db, 999)).toThrow("bulunamadı");
     // A product on a cancelled order is still on an order: it cannot be deleted.
     expect(() => repo.deleteProduct(db, p.id)).toThrow("silinemez");
+  });
+
+  test("only a cancelled order can be deleted; delete removes its lines", () => {
+    const db = fresh();
+    const p = repo.createProduct(db, { barcode: "1", name: "A", price_kurus: 500 });
+    const o = repo.createOrder(db, { lines: [{ product_id: p.id, quantity: 1, unit_price_kurus: 500 }] });
+    expect(() => repo.deleteOrder(db, o.id)).toThrow("Önce siparişi iptal edin");
+    repo.cancelOrder(db, o.id);
+    repo.deleteOrder(db, o.id);
+    expect(repo.listOrders(db)).toEqual([]);
+    expect((db.query("SELECT COUNT(*) AS n FROM order_lines").get() as { n: number }).n).toBe(0);
+    expect(() => repo.deleteOrder(db, o.id)).toThrow("bulunamadı");
+    // Order numbers are never used again, even after the newest order is deleted.
+    const next = repo.createOrder(db, { lines: [{ product_id: p.id, quantity: 1, unit_price_kurus: 500 }] });
+    expect(next.order_no).toBe(o.order_no + 1);
   });
 
   test("old databases get the cancelled_at column", () => {

@@ -52,6 +52,19 @@ export function createOrdersScreen(): Screen {
     renderDetail(updated);
   }
 
+  async function remove(order: OrderWithLines) {
+    const ok = await confirmDialog(
+      `İptal edilmiş Sipariş No ${order.order_no} kalıcı olarak silinsin mi? Bu işlem geri alınamaz.`,
+      "Evet, kalıcı olarak sil",
+    );
+    if (!ok) return;
+    await api.deleteOrder(order.id);
+    toast(`Sipariş No ${order.order_no} silindi.`, "success");
+    openId = null;
+    detail.replaceChildren(emptyDetail);
+    await load();
+  }
+
   async function openOrder(id: number) {
     openId = id;
     renderDetail(await api.order(id));
@@ -87,8 +100,13 @@ export function createOrdersScreen(): Screen {
       order.cancelled_at && h("div", { class: "notice notice-error" }, `İptal edildi: ${formatDateTime(order.cancelled_at)}`),
       lines,
       h("div", { class: `order-total${order.cancelled_at ? " struck" : ""}` }, "Toplam: ", h("strong", {}, formatMoney(order.total_kurus))),
-      !order.cancelled_at &&
-        h("div", { class: "order-actions" }, h("button", { class: "btn btn-danger", onclick: () => run(() => cancel(order)) }, "Siparişi İptal Et")),
+      h(
+        "div",
+        { class: "order-actions" },
+        order.cancelled_at
+          ? h("button", { class: "btn btn-danger-outline", onclick: () => run(() => remove(order)) }, "Siparişi Sil")
+          : h("button", { class: "btn btn-danger", onclick: () => run(() => cancel(order)) }, "Siparişi İptal Et"),
+      ),
     );
     detail.replaceChildren(body);
   }

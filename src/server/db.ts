@@ -56,6 +56,10 @@ CREATE TABLE IF NOT EXISTS order_lines (
 );
 CREATE INDEX IF NOT EXISTS order_lines_order ON order_lines(order_id);
 CREATE INDEX IF NOT EXISTS order_lines_product ON order_lines(product_id);
+CREATE TABLE IF NOT EXISTS counters (
+  name TEXT PRIMARY KEY,
+  value INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
@@ -207,7 +211,14 @@ export function createOrder(db: Database, input: unknown): OrderWithLines {
     }
 
     const total = priced.reduce((sum, l) => sum + l.line_total_kurus, 0);
-    const { next } = db.query("SELECT COALESCE(MAX(order_no), 0) + 1 AS next FROM orders").get() as { next: number };
+    // The counter keeps order numbers unique even after the newest order is deleted.
+    const { next } = db
+      .query(
+        `SELECT MAX(COALESCE((SELECT MAX(order_no) FROM orders), 0),
+                    COALESCE((SELECT value FROM counters WHERE name = 'order_no'), 0)) + 1 AS next`,
+      )
+      .get() as { next: number };
+    db.query("INSERT INTO counters (name, value) VALUES ('order_no', ?) ON CONFLICT(name) DO UPDATE SET value = excluded.value").run(next);
     const order = db
       .query("INSERT INTO orders (order_no, total_kurus, created_at) VALUES (?, ?, ?) RETURNING id")
       .get(next, total, now()) as { id: number };
@@ -228,6 +239,16 @@ export function cancelOrder(db: Database, id: number): OrderWithLines {
   if (order.cancelled_at) throw new HttpError(409, `Sipariş No ${order.order_no} zaten iptal edilmiş.`);
   db.query("UPDATE orders SET cancelled_at = ? WHERE id = ?").run(now(), id);
   return getOrder(db, id);
+}
+
+/** Permanently deletes an order and its lines. Only a cancelled order can be deleted. */
+export function deleteOrder(db: Database, id: number): void {
+  const order = getOrder(db, id);
+  if (!order.cancelled_at) throw new HttpError(409, "Yalnızca iptal edilmiş bir sipariş silinebilir. Önce siparişi iptal edin.");
+  db.transaction(() => {
+    db.query("DELETE FROM order_lines WHERE order_id = ?").run(id);
+    db.query("DELETE FROM orders WHERE id = ?").run(id);
+  })();
 }
 
 const ORDER_SELECT = `

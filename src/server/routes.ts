@@ -4,6 +4,9 @@ import { backupStamp } from "../shared/time";
 import type { HealthResponse } from "../shared/types";
 import * as repo from "./db";
 import { HttpError } from "./db";
+import { buildTspl, bytesPerRow } from "../shared/tspl";
+import type { PrintLabelInput } from "../shared/types";
+import { listPrinters, sendRaw } from "./printer";
 import { checkForUpdate, installUpdate, VERSION } from "./update";
 
 type Handler = (
@@ -49,6 +52,25 @@ const download = (body: BodyInit, type: string, filename: string) =>
   new Response(body, {
     headers: { "Content-Type": type, "Content-Disposition": `attachment; filename="${filename}"` },
   });
+
+const MAX_LABEL_DOTS = 2000; // 250 mm at 203 dpi
+
+/** Checks the labels sent by the page and decodes their bitmaps. */
+function readPrintLabels(input: unknown) {
+  const labels = (input as { labels?: unknown })?.labels;
+  if (!Array.isArray(labels) || labels.length === 0) throw new HttpError(400, "Yazdırılacak etiket yok.");
+  if (labels.length > 500) throw new HttpError(400, "Bir seferde en fazla 500 farklı etiket yazdırılabilir.");
+  return (labels as PrintLabelInput[]).map((l) => {
+    const ok =
+      Number.isInteger(l?.width) && Number.isInteger(l?.height) && l.width > 0 && l.height > 0 &&
+      l.width <= MAX_LABEL_DOTS && l.height <= MAX_LABEL_DOTS &&
+      Number.isInteger(l.copies) && l.copies >= 1 && l.copies <= 999 && typeof l.bitmap === "string";
+    if (!ok) throw new HttpError(400, "Etiket verisi hatalı.");
+    const bitmap = new Uint8Array(Buffer.from(l.bitmap, "base64"));
+    if (bitmap.length !== bytesPerRow(l.width) * l.height) throw new HttpError(400, "Etiket görüntüsünün boyutu hatalı.");
+    return { bitmap, width: l.width, height: l.height, copies: l.copies };
+  });
+}
 
 export interface AppHooks {
   /** Stops the server and starts the newly installed executable. */
@@ -96,6 +118,10 @@ export function apiRoutes(db: Database, hooks: AppHooks) {
     },
     "/api/orders/:id": {
       GET: safe((req) => json(repo.getOrder(db, idParam(req.params.id)))),
+      DELETE: safe((req) => {
+        repo.deleteOrder(db, idParam(req.params.id));
+        return json({ ok: true });
+      }),
     },
     "/api/orders/:id/cancel": {
       POST: safe((req) => json(repo.cancelOrder(db, idParam(req.params.id)))),
@@ -106,6 +132,40 @@ export function apiRoutes(db: Database, hooks: AppHooks) {
     },
     "/api/backup": {
       GET: safe(() => download(new Uint8Array(db.serialize()), "application/octet-stream", `tezgah-${backupStamp()}.db`)),
+    },
+    "/api/printers": {
+      GET: safe(async () => {
+        try {
+          return json(await listPrinters());
+        } catch (e) {
+          throw new HttpError(500, `Yazıcı listesi alınamadı: ${(e as Error).message}`);
+        }
+      }),
+    },
+    "/api/print": {
+      POST: safe(async (req, server) => {
+        server.timeout(req, 120); // PowerShell start-up plus a large job can take a while
+        const labels = readPrintLabels(await readJson(req));
+        const s = repo.getSettings(db);
+        if (!s.printer_name) throw new HttpError(400, "Önce Ayarlar ekranında bir yazıcı seçin.");
+        const data = buildTspl(
+          {
+            widthMm: s.label_width_mm,
+            heightMm: s.label_height_mm,
+            gapMm: s.label_gap_mm,
+            density: s.print_density,
+            speed: s.print_speed,
+            rotate180: s.print_rotate_180,
+          },
+          labels,
+        );
+        try {
+          await sendRaw(s.printer_name, data);
+        } catch (e) {
+          throw new HttpError(500, `"${s.printer_name}" yazıcısına gönderilemedi: ${(e as Error).message}`);
+        }
+        return json({ ok: true, count: labels.reduce((n, l) => n + l.copies, 0) });
+      }),
     },
     "/api/update": {
       GET: safe(async () => json(await checkForUpdate())),
