@@ -6,10 +6,17 @@ Tezgah, dükkan için küçük bir satış ve etiket programıdır. İnternet ge
 
 1. `Tezgah.exe` dosyasını bir klasöre koyun. Örnek: `C:\Tezgah`.
 2. `Tezgah.exe` dosyasına çift tıklayın.
-3. Siyah bir pencere açılır. Bu pencereyi kapatmayın. Pencere kapanırsa program durur.
-4. Tarayıcı kendiliğinden açılır. Açılmazsa tarayıcıya `http://localhost:5757` yazın.
+3. Tezgah kendi penceresinde açılır. Adres çubuğu ve sekme yoktur.
 
-Program zaten açıksa, yeniden çift tıklamak sadece tarayıcıyı açar.
+Programı kapatmak için Tezgah penceresini kapatın. Program birkaç saniye sonra tamamen durur.
+
+Program zaten açıksa, yeniden çift tıklamak ikinci bir Tezgah penceresi açar.
+
+Tezgah penceresi Microsoft Edge ile çalışır. Edge her Windows 10 ve 11 bilgisayarda vardır. Edge bulunamazsa sayfa varsayılan tarayıcıda açılır.
+
+Ekranın üstünde kırmızı "Tezgah programı kapandı" yazısı çıkarsa: pencereyi kapatın ve `Tezgah.exe` dosyasına yeniden çift tıklayın.
+
+Program açılmazsa bir hata kutusu çıkar. Programın mesajları `data\tezgah.log` dosyasına yazılır.
 
 Veriler `Tezgah.exe` ile aynı klasördeki `data` klasöründe durur.
 
@@ -229,11 +236,11 @@ Silinen sipariş geri gelmez. Sipariş numarası başka bir siparişe verilmez.
 1. **Ayarlar** sekmesini açın.
 2. **Güncelleme** bölümünde **Güncellemeleri denetle** düğmesine basın.
 3. Yeni sürüm varsa **Güncelle ve yeniden başlat** düğmesine basın ve onaylayın.
-4. Bekleyin. Siyah pencere kapanır ve yenisi açılır. Sayfa kendiliğinden yenilenir.
+4. Bekleyin. Program yeniden başlar. Sayfa kendiliğinden yenilenir.
 
 Ürünler, siparişler ve yarım kalan sipariş korunur.
 
-Güncelleme sırasında siyah pencereyi kapatmayın.
+Güncelleme sırasında Tezgah penceresini kapatmayın.
 
 ## Yedekleme
 
@@ -241,7 +248,7 @@ Program her açılışta `data\backups` klasörüne bir yedek alır. Son 30 yede
 
 Kendi yedeğinizi almak için:
 
-1. Programı kapatın (siyah pencereyi kapatın).
+1. Programı kapatın (Tezgah penceresini kapatın, 10 saniye bekleyin).
 2. `data` klasörünü kopyalayın. Örnek: bir USB belleğe.
 
 **Ayarlar** ekranındaki **Veritabanı yedeği indir** düğmesi de bir yedek dosyası indirir.

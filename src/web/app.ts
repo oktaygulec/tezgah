@@ -13,6 +13,7 @@ import { createLowStockScreen } from "./screens/lowStock";
 import { createReportsScreen } from "./screens/reports";
 import { createCategoriesScreen } from "./screens/categories";
 import { createBulkPricesScreen } from "./screens/bulkPrices";
+import { stayConnected } from "./live";
 import { loadCategories, onSettingsChange, setSettings } from "./state";
 import { errorMessage, run, setActiveScanInput, toast, type Screen } from "./ui";
 
@@ -68,6 +69,7 @@ onSettingsChange((s) => {
 });
 
 window.addEventListener("hashchange", showScreen);
+stayConnected();
 // Load settings and categories first: label previews and product forms use them.
 void run(async () => {
   const [settings] = await Promise.all([api.settings(), loadCategories()]);

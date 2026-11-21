@@ -4,15 +4,21 @@ import path from "node:path";
 import index from "../web/index.html";
 import { backupDatabase } from "./backup";
 import { openDatabase } from "./db";
+import { createLifetime, LIVE_PATH, logToFile, openAppWindow, showErrorBox } from "./desktop";
 import { apiRoutes, type AppHooks } from "./routes";
 import { cleanUpOldExecutable, startNewProcess, updatedFromPort, VERSION } from "./update";
-import { dataDirectory, isAddressInUse, isCompiled, isPortTaken, isTezgahRunning, openBrowser } from "./system";
+import { dataDirectory, isAddressInUse, isCompiled, isPortTaken, isTezgahRunning } from "./system";
 
 const FIRST_PORT = 5757;
 const EXTRA_PORTS = 10;
+/** After an update the open page reloads itself. If no window connects in this time, open one. */
+const UPDATE_WINDOW_WAIT_MS = 20_000;
 
 async function main() {
   const dataDir = dataDirectory();
+  mkdirSync(dataDir, { recursive: true });
+  if (isCompiled) logToFile(path.join(dataDir, "tezgah.log"));
+
   let db: Database | undefined;
   let server: ReturnType<typeof Bun.serve> | undefined;
 
@@ -22,20 +28,30 @@ async function main() {
     for (let i = 0; i < 30 && (await isTezgahRunning(oldPort)); i++) await Bun.sleep(500);
   }
 
+  function stopServer() {
+    server?.stop(true);
+    db?.close();
+  }
+
+  const lifetime = createLifetime(() => {
+    stopServer();
+    process.exit(0);
+  });
+
   const hooks: AppHooks = {
     restart() {
       const port = server?.port ?? FIRST_PORT;
-      server?.stop(true);
-      db?.close();
+      stopServer();
       startNewProcess(port);
       process.exit(0);
     },
+    healthChecked: () => lifetime.expectWindow(),
   };
 
   for (let port = FIRST_PORT; port <= FIRST_PORT + EXTRA_PORTS; port++) {
     if (await isTezgahRunning(port)) {
-      console.log(`Tezgah zaten çalışıyor (port ${port}). Tarayıcı açılıyor.`);
-      openBrowser(`http://localhost:${port}`);
+      console.log(`Tezgah zaten çalışıyor (port ${port}). Yeni pencere açılıyor.`);
+      openAppWindow(`http://localhost:${port}`);
       process.exit(0);
     }
     if (await isPortTaken(port)) {
@@ -44,7 +60,6 @@ async function main() {
     }
 
     // Open the database only when this copy will really run.
-    mkdirSync(dataDir, { recursive: true });
     db ??= openDatabase(path.join(dataDir, "tezgah.db"));
 
     try {
@@ -52,8 +67,14 @@ async function main() {
         hostname: "127.0.0.1",
         port,
         development: !isCompiled,
-        routes: { "/": index, ...apiRoutes(db, hooks) },
+        routes: {
+          "/": index,
+          // Each open Tezgah window keeps this WebSocket open (see desktop.ts).
+          [LIVE_PATH]: (req, srv) => (srv.upgrade(req) ? undefined : new Response("WebSocket gerekli", { status: 400 })),
+          ...apiRoutes(db, hooks),
+        },
         fetch: () => new Response("Bulunamadı", { status: 404 }),
+        websocket: lifetime.websocket,
         error(e) {
           console.error("Sunucu hatası:", e);
           return Response.json({ error: `Sunucu hatası: ${e.message}` }, { status: 500 });
@@ -67,12 +88,18 @@ async function main() {
 
     const backup = backupDatabase(db, dataDir);
     const url = `http://localhost:${server.port}`;
-    console.log(`Tezgah ${VERSION} çalışıyor. Bu pencereyi kapatırsanız program durur.`);
+    console.log(`Tezgah ${VERSION} çalışıyor. Son Tezgah penceresi kapanınca program durur.`);
     console.log(`Adres: ${url}`);
     console.log(`Veri klasörü: ${dataDir}`);
     console.log(`Yedek: ${backup}`);
-    // After an update the open page reloads itself, so no new browser tab.
-    if (oldPort === null) openBrowser(url);
+    if (oldPort === null) {
+      openAppWindow(url);
+    } else {
+      // After an update the open page reloads itself. Open a window only if it does not come back.
+      setTimeout(() => {
+        if (lifetime.windows === 0) openAppWindow(url);
+      }, UPDATE_WINDOW_WAIT_MS);
+    }
     void cleanUpOldExecutable();
     return;
   }
@@ -81,7 +108,6 @@ async function main() {
 
 main().catch((e) => {
   console.error("Tezgah başlatılamadı:", e);
-  // Keep the console window open on Windows so the user can read the error.
-  if (process.stdin.isTTY) prompt("Kapatmak için Enter tuşuna basın.");
+  showErrorBox(`Tezgah başlatılamadı.\n\n${(e as Error)?.message ?? e}\n\nAyrıntılar: data\\tezgah.log`);
   process.exit(1);
 });

@@ -7,16 +7,17 @@ import path from "node:path";
 const root = path.resolve(import.meta.dir, "..");
 const entry = path.join(root, "src/server/main.ts");
 const targets = [
-  { target: "bun-windows-x64", outfile: "dist/Tezgah.exe" },
-  { target: "bun-darwin-arm64", outfile: "dist/tezgah-mac" },
+  // No console window on Windows: Tezgah opens its own app window (see src/server/desktop.ts).
+  { target: "bun-windows-x64", outfile: "dist/Tezgah.exe", extra: ["--windows-hide-console"] },
+  { target: "bun-darwin-arm64", outfile: "dist/tezgah-mac", extra: [] },
 ];
 
 rmSync(path.join(root, "dist"), { recursive: true, force: true });
 
-for (const { target, outfile } of targets) {
+for (const { target, outfile, extra } of targets) {
   console.log(`\n== ${target} -> ${outfile}`);
   const proc = Bun.spawnSync(
-    [process.execPath, "build", entry, "--compile", "--minify", `--target=${target}`, "--outfile", outfile],
+    [process.execPath, "build", entry, "--compile", "--minify", `--target=${target}`, "--outfile", outfile, ...extra],
     { cwd: root, stdout: "inherit", stderr: "inherit" },
   );
   if (proc.exitCode !== 0) {

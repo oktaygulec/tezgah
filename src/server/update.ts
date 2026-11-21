@@ -148,8 +148,8 @@ export function startNewProcess(oldPort: number) {
   const exe = process.execPath;
   const args = ["--updated", String(oldPort)];
   if (process.platform === "win32") {
-    // "start" opens the program in its own console window.
-    Bun.spawn(["cmd", "/c", "start", "", exe, ...args], { stdio: ["ignore", "ignore", "ignore"] });
+    // Detached: the new process keeps running after this process exits.
+    Bun.spawn([exe, ...args], { stdio: ["ignore", "ignore", "ignore"], detached: true });
   } else {
     Bun.spawn(["/bin/sh", "-c", '"$0" "$@" &', exe, ...args], { stdio: ["ignore", "inherit", "inherit"] });
   }

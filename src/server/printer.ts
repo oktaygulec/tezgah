@@ -26,7 +26,8 @@ ${script}
   const encoded = Buffer.from(wrapped, "utf16le").toString("base64");
   const proc = Bun.spawn(
     ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
-    { env: { ...process.env, ...env }, stdin: "ignore", stdout: "pipe", stderr: "pipe" },
+    // windowsHide: no console window flashes on the screen for each print job.
+    { env: { ...process.env, ...env }, stdin: "ignore", stdout: "pipe", stderr: "pipe", windowsHide: true },
   );
   const [out, err, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
   if (code !== 0) {
@@ -42,7 +43,7 @@ ${script}
 }
 
 async function run(cmd: string[]): Promise<string> {
-  const proc = Bun.spawn(cmd, { stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+  const proc = Bun.spawn(cmd, { stdin: "ignore", stdout: "pipe", stderr: "pipe", windowsHide: true });
   const [out, err, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
   if (code !== 0) throw new Error(err.trim() || `${cmd[0]} çıkış kodu ${code}`);
   return out;

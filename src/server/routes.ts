@@ -78,12 +78,17 @@ function readPrintLabels(input: unknown) {
 export interface AppHooks {
   /** Stops the server and starts the newly installed executable. */
   restart(): void;
+  /** Called on each health check: another copy of Tezgah may be about to open a window. */
+  healthChecked?(): void;
 }
 
 export function apiRoutes(db: Database, hooks: AppHooks) {
   return {
     "/api/health": {
-      GET: safe(() => json({ app: "tezgah", ok: true, version: VERSION } satisfies HealthResponse)),
+      GET: safe(() => {
+        hooks.healthChecked?.();
+        return json({ app: "tezgah", ok: true, version: VERSION } satisfies HealthResponse);
+      }),
     },
     "/api/products": {
       GET: safe(() => json(repo.listProducts(db))),
