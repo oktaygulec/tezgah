@@ -41,7 +41,7 @@ function showScreen() {
 
 onSettingsChange((s) => {
   document.getElementById("shop-name")!.textContent = s.shop_name || "Tezgah";
-  document.title = s.shop_name ? `${s.shop_name} – Tezgah` : "Tezgah";
+  document.title = s.shop_name && s.shop_name !== "Tezgah" ? `${s.shop_name} – Tezgah` : "Tezgah";
 });
 
 window.addEventListener("hashchange", showScreen);
