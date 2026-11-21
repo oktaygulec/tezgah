@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { nextInStoreEan13 } from "../shared/barcode";
 import { parseProductCsv } from "../shared/csv";
-import { lineTotal } from "../shared/order";
+import { lineTotal, MAX_QUANTITY } from "../shared/order";
 import { MAX_STOCK_QUANTITY, type StockReason } from "../shared/stock";
 import { istanbulDayRange } from "../shared/time";
 import { barcodeError, categoryNameError, costKurusError, heliumKurusError, nameError, priceKurusError } from "../shared/validate";
@@ -432,7 +432,7 @@ export function createOrder(db: Database, input: unknown): OrderWithLines {
     const priced: Omit<OrderLine, "id" | "order_id">[] = [];
     const changed: string[] = [];
     for (const raw of lines as NewOrderLine[]) {
-      if (!Number.isSafeInteger(raw?.product_id) || !Number.isSafeInteger(raw?.quantity) || raw.quantity < 1 || raw.quantity > 100000) {
+      if (!Number.isSafeInteger(raw?.product_id) || !Number.isSafeInteger(raw?.quantity) || raw.quantity < 1 || raw.quantity > MAX_QUANTITY) {
         throw new HttpError(400, "Sipariş satırı geçersiz.");
       }
       const product = db.query("SELECT * FROM products WHERE id = ?").get(raw.product_id) as Product | null;

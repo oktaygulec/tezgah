@@ -2,7 +2,7 @@
 // Balloon lines have a "Helyumlu" box that switches the line to the helium price.
 
 import { formatMoney } from "../../shared/money";
-import { addToCart, lineTotal, orderTotal, setLineHelium, type CartLine } from "../../shared/order";
+import { addToCart, lineTotal, MAX_QUANTITY, orderTotal, parseQuantity, setLineHelium, type CartLine } from "../../shared/order";
 import { salePrice, type Product } from "../../shared/types";
 import { api, ApiError, findProduct } from "../api";
 import { thumbnail } from "../image";
@@ -100,7 +100,7 @@ export function createSaleScreen(): Screen {
   const completeButton = h("button", { class: "btn btn-primary btn-xl", onclick: () => run(complete) }, "Siparişi Tamamla");
   const cancelButton = h("button", { class: "btn btn-danger btn-xl", onclick: () => run(cancel) }, "Siparişi İptal Et");
 
-  const scanInput = scanField("Barkodu okutun…", async (code) => {
+  async function scan(code: string) {
     const product = await findProduct(code);
     if (product) {
       hideNotice();
@@ -108,7 +108,9 @@ export function createSaleScreen(): Screen {
     } else {
       unknownBarcode(code);
     }
-  });
+  }
+
+  const scanInput = scanField("Barkodu okutun…", scan);
 
   function setCart(lines: CartLine[]) {
     cart = lines;
@@ -129,7 +131,60 @@ export function createSaleScreen(): Screen {
 
   function changeQuantity(line: CartLine, delta: number) {
     const quantity = line.quantity + delta;
+    if (quantity > MAX_QUANTITY) return toast(`Adet en fazla ${MAX_QUANTITY} olabilir.`, "error");
     setCart(quantity < 1 ? cart.filter((l) => l !== line) : cart.map((l) => (l === line ? { ...l, quantity } : l)));
+  }
+
+  /** Same line in the cart: one line for each product and price choice. */
+  const lineKey = (line: CartLine) => `${line.product_id}:${line.helium ? 1 : 0}`;
+
+  /**
+   * Quantity box of a line. The new value is applied on Enter or when the box loses focus.
+   * A wrong value (empty, 0, decimal, too large) puts the old value back.
+   * Text longer than the largest quantity is a barcode scanned into the box: it is sold as a scan.
+   */
+  function quantityInput(line: CartLine) {
+    const input = h("input", {
+      class: "input qty-input",
+      type: "text", // not "number": a scanned barcode with letters must reach the scan code as typed
+      inputMode: "numeric",
+      autocomplete: "off",
+      spellcheck: false,
+      value: String(line.quantity),
+      title: "Adet",
+      "aria-label": `${line.name} adet`,
+      "data-key": lineKey(line),
+      onfocus: () => input.select(),
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const text = input.value.trim();
+        if (text.length > String(MAX_QUANTITY).length) {
+          input.value = String(line.quantity);
+          scanInput.focus();
+          void run(() => scan(text));
+          return;
+        }
+        input.blur(); // fires "change"; the scan field then gets the focus back
+      } else if (e.key === "Escape") {
+        input.value = String(line.quantity);
+        input.blur();
+      }
+    });
+    input.addEventListener("change", () => {
+      const result = parseQuantity(input.value);
+      if (typeof result === "string") {
+        input.value = String(line.quantity);
+        errorSound();
+        toast(result, "error");
+        return;
+      }
+      if (result === line.quantity) return;
+      // Wait until the focus moves (for example to the box of another line), so render() can keep it.
+      setTimeout(() => setCart(cart.map((l) => (l === line ? { ...l, quantity: result } : l))), 0);
+    });
+    return input;
   }
 
   function showNotice(kind: "error" | "success", ...content: (Node | string)[]) {
@@ -222,6 +277,9 @@ export function createSaleScreen(): Screen {
   }
 
   function render() {
+    // render() rebuilds the rows; keep the focus in a quantity box that the user is in.
+    const active = document.activeElement;
+    const focusedKey = active instanceof HTMLInputElement && tbody.contains(active) && active.classList.contains("qty-input") ? active.dataset.key : undefined;
     tbody.replaceChildren(
       ...cart.map((line) =>
         h(
@@ -243,9 +301,13 @@ export function createSaleScreen(): Screen {
           h(
             "td",
             { class: "qty" },
-            h("button", { class: "btn btn-qty", title: "Azalt", onclick: () => changeQuantity(line, -1) }, "−"),
-            h("span", { class: "qty-value" }, line.quantity),
-            h("button", { class: "btn btn-qty", title: "Artır", onclick: () => changeQuantity(line, 1) }, "+"),
+            h(
+              "div",
+              { class: "qty-box" },
+              h("button", { class: "btn btn-qty", title: "Azalt", onclick: () => changeQuantity(line, -1) }, "−"),
+              quantityInput(line),
+              h("button", { class: "btn btn-qty", title: "Artır", onclick: () => changeQuantity(line, 1) }, "+"),
+            ),
           ),
           h("td", { class: "num strong" }, formatMoney(lineTotal(line))),
           h(
@@ -260,6 +322,7 @@ export function createSaleScreen(): Screen {
       tbody.append(h("tr", {}, h("td", { colSpan: 6, class: "empty" }, "Ürün okutun veya \"Ürün seç\" ile seçin. Ürünler burada listelenir.")));
     }
     total.replaceChildren(h("span", {}, "TOPLAM"), h("strong", {}, formatMoney(orderTotal(cart))));
+    if (focusedKey) tbody.querySelector<HTMLInputElement>(`.qty-input[data-key="${focusedKey}"]`)?.focus();
   }
 
   render();

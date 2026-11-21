@@ -40,7 +40,7 @@ Barkod okuyucu, barkodu yazar ve Enter tuşuna basar.
 1. **Satış** sekmesini açın.
 2. Ürünleri okutun. Aynı ürünü tekrar okutursanız adet 1 artar.
    Barkodu okutmadan eklemek için **Ürün seç** düğmesine basın. Favori ürünler kategorilere göre listelenir. Ürüne tıklayın.
-3. Adedi **−** ve **+** düğmeleriyle değiştirin. Satırı silmek için **Kaldır** düğmesine basın.
+3. Adedi **−** ve **+** düğmeleriyle değiştirin. Çok adet için adet kutusuna tıklayın, sayıyı yazın ve **Enter**'a basın. **Esc** yazdığınızı geri alır. Satırı silmek için **Kaldır** düğmesine basın.
 4. **Siparişi Tamamla** düğmesine basın. Sipariş numarası ekranda görünür.
 
 Siparişi silmek için **Siparişi İptal Et** düğmesine basın ve onaylayın.

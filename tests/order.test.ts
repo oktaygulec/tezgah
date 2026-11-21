@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { setLineHelium, addToCart, lineTotal, orderTotal, type CartLine } from "../src/shared/order";
+import { setLineHelium, addToCart, lineTotal, MAX_QUANTITY, orderTotal, parseQuantity, type CartLine } from "../src/shared/order";
 
 const tea = { id: 1, barcode: "2000000000015", name: "Çay", price_kurus: 1250 };
 const bread = { id: 2, barcode: "2000000000022", name: "Ekmek", price_kurus: 1000 };
@@ -77,5 +77,19 @@ describe("helium lines", () => {
     expect(cart[0]).toMatchObject({ helium: true, quantity: 2 });
     cart = setLineHelium(cart, cart[0]!, false);
     expect(cart[0]).toMatchObject({ helium: false, unit_price_kurus: 10000, quantity: 2 });
+  });
+});
+
+describe("parseQuantity", () => {
+  test("accepts whole numbers from 1 to MAX_QUANTITY", () => {
+    expect(parseQuantity("1")).toBe(1);
+    expect(parseQuantity(" 25 ")).toBe(25);
+    expect(parseQuantity(String(MAX_QUANTITY))).toBe(MAX_QUANTITY);
+  });
+
+  test("rejects empty, zero, negative, decimal and too large values", () => {
+    for (const text of ["", "0", "-3", "2.5", "1e3", "abc", String(MAX_QUANTITY + 1), "8690000000005"]) {
+      expect(typeof parseQuantity(text)).toBe("string");
+    }
   });
 });

@@ -16,6 +16,21 @@ export interface CartLine {
   image_at?: string | null;
 }
 
+/** Largest quantity of one order line (the server rejects more). */
+export const MAX_QUANTITY = 100000;
+
+/**
+ * Reads a quantity typed by the user. Returns the whole number, or an error text.
+ * Empty, zero, negative and decimal values are errors.
+ */
+export function parseQuantity(text: string): number | string {
+  const value = text.trim();
+  if (!/^\d+$/.test(value) || Number(value) < 1) return "Adet 1 veya daha büyük bir tam sayı olmalı.";
+  const quantity = Number(value);
+  if (quantity > MAX_QUANTITY) return `Adet en fazla ${MAX_QUANTITY} olabilir.`;
+  return quantity;
+}
+
 export function lineTotal(line: { unit_price_kurus: number; quantity: number }): number {
   return line.unit_price_kurus * line.quantity;
 }
