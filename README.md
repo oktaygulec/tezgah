@@ -37,7 +37,28 @@ HTML import in `src/server/main.ts`. The UI uses system fonts, so there are no f
 - Data: `data/tezgah.db` beside the executable (in dev: the project folder). Created on first start.
 - Backup: every start writes `data/backups/tezgah-YYYYMMDD-HHmmss.db` (Istanbul time) with `VACUUM INTO`. The newest 30 are kept.
 - Port: 5757. If a Tezgah already answers `/api/health` there, the new copy opens the browser and exits. If another program uses the port, the next 10 ports are tried. The app connects to the port before it binds, because macOS accepted a second bind to the same port in testing.
+- Order numbers never repeat: a counter table keeps the highest number, also after a delete.
 - Money is integer kuruş. Timestamps are ISO 8601 UTC, shown in `Europe/Istanbul`.
+
+## Label printing
+
+`src/web/label.ts` draws each label on a canvas at 203 dpi (8 dots per mm) and makes it pure black and
+white. That one image is used three ways:
+
+1. **Preview:** shown at its real size in mm.
+2. **Direct printing (default when a printer is chosen in Ayarlar):** the page packs the image into
+   TSPL bitmap rows (`src/shared/tspl.ts`, 0 bit = black dot) and posts it to `POST /api/print`. The
+   server wraps it in TSPL (`SIZE`, `GAP`, `DIRECTION`, `DENSITY`, `SPEED`, `BITMAP`, `PRINT`) and
+   sends it as one RAW job (`src/server/printer.ts`). On Windows this uses the spooler with the "RAW"
+   data type through a small PowerShell + C# helper, so the driver, paper size and orientation
+   settings are skipped. On macOS/Linux it uses `lp -o raw`.
+3. **Browser fallback:** one `<img>` per page with `@page { size: <w>mm <h>mm; margin: 0 }`.
+
+The barcode uses a whole number of dots per module (2 to 4), so the narrowest bar is at least
+0.25 mm. When space is short, the text gets smaller; the bars never do.
+
+For tests, `TEZGAH_PRINT_TO_FILE=<path>` adds a printer named "Test dosyası (TEZGAH_PRINT_TO_FILE)"
+whose jobs are appended to that file.
 
 ## Updates and releases
 
@@ -70,11 +91,12 @@ For tests, `TEZGAH_UPDATE_URL` points the updater at another "latest release" JS
 
 ```
 src/server/      main.ts (start-up, port loop), routes.ts (JSON API), db.ts (SQLite schema + queries),
-                 backup.ts, system.ts (data folder, browser open, port probes), update.ts (self-update)
+                 backup.ts, system.ts (data folder, browser open, port probes), update.ts (self-update),
+                 printer.ts (printer list, RAW print jobs)
 src/web/         index.html, app.ts (tabs), api.ts, ui.ts (DOM helpers, dialogs, scan focus),
                  label.ts (label drawing), productForm.ts, search.ts, state.ts, updater.ts,
                  screens/ (sale, price, products, labels, orders, settings), styles.css, print.css
-src/shared/      barcode.ts, money.ts, order.ts, csv.ts, time.ts, types.ts
+src/shared/      barcode.ts, money.ts, order.ts, csv.ts, time.ts, tspl.ts, types.ts
 tests/           bun test files
 scripts/build.ts builds both executables
 ```
@@ -91,17 +113,13 @@ scripts/build.ts builds both executables
 | `GET /api/products/export` | CSV download (UTF-8 with BOM) |
 | `GET /api/barcode/next` | next free in-store EAN-13 (`2` + 11-digit sequence + check digit) |
 | `GET/POST /api/orders` | list (`?day=YYYY-MM-DD`, Istanbul day; no day = latest 200) / create |
-| `GET /api/orders/:id` | order with lines |
+| `GET/DELETE /api/orders/:id` | order with lines / delete (only a cancelled order) |
+| `POST /api/orders/:id/cancel` | cancel a saved order (kept, left out of totals) |
 | `GET/PUT /api/settings` | label and shop settings |
+| `GET /api/printers` | `{ printers, default }` installed printers |
+| `POST /api/print` | `{ labels: [{ bitmap, width, height, copies }] }` → RAW TSPL job to the chosen printer |
 | `GET /api/backup` | download the current database |
 | `GET /api/update` | `{ current, latest, available, notes, url }` from the latest GitHub release |
 | `POST /api/update` | download, verify and install the latest release, then restart |
 
 Errors are JSON `{ "error": "<Turkish message>" }`. The server logs unexpected errors to the console.
-
-## Labels
-
-`src/web/label.ts` draws the barcode with JsBarcode as SVG, with 1 SVG unit = 1 module. It then
-scales the SVG to a whole number of 203 dpi printer dots per module (2 to 4 dots, so the narrowest
-bar is at least 0.25 mm). When the label is short of space, the text gets smaller; the bars never do.
-EAN-13 and EAN-8 are used when the check digit is valid; every other code is printed as Code 128.

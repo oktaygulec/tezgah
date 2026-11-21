@@ -54,46 +54,55 @@ Sayfa yenilenirse yarım kalan sipariş kaybolmaz.
 - **CSV İçe Aktar**: `barkod;ad;fiyat` biçiminde bir dosya seçin. Hatalı satırlar ekranda listelenir.
 - **CSV Dışa Aktar**: tüm ürünleri Excel ile açılabilen bir dosyaya kaydeder.
 
+## Yazıcıyı ayarlama (bir kez yapılır)
+
+Tezgah etiketleri yazıcıya doğrudan gönderir. Yazdırma penceresi açılmaz. Kağıt boyutu ve yön ayarı gerekmez.
+
+1. **Ayarlar** sekmesini açın.
+2. **Etiket genişliği** ve **Etiket yüksekliği** kutularına rulodaki etiketin ölçüsünü yazın. Örnek: 60 ve 30.
+3. **Etiket yazıcısı** listesinden yazıcıyı seçin. Örnek: **Xprinter XP-470B**.
+4. **Kaydet ve deneme etiketi yazdır** düğmesine basın.
+5. Çıkan etiketi kontrol edin:
+   - Baskı ters ise **Etiketi 180° çevir** kutusunu işaretleyin.
+   - Baskı kaymış ise **Sağa kaydır** veya **Aşağı kaydır** değerini değiştirin. Eksi değer sola veya yukarı kaydırır.
+   - Baskı soluk ise **Baskı koyuluğu** değerini artırın (en çok 15).
+   - Etiketin yarısına basıyorsa veya etiket atlıyorsa **Etiketler arası boşluk** değerini değiştirin (çoğu ruloda 2 veya 3).
+6. Etiket düzgün çıkana kadar 4. ve 5. adımları tekrarlayın.
+
+Yazıcı listede yoksa yazıcıyı açın, USB kablosunu kontrol edin ve **Yenile** düğmesine basın.
+
+Bu yöntem TSPL dilini anlayan termal yazıcılar içindir (Xprinter, TSC ve benzerleri). Yazıcı başka bir dil kullanıyorsa listeden **Yazıcı yok** seçeneğini seçin. Bu durumda Tezgah tarayıcının yazdırma penceresini kullanır.
+
 ## Etiket yazdırma
 
 1. **Etiket** sekmesini açın. Ya da **Ürünler** ekranında **Bu ürünü etiketle** düğmesine basın.
 2. Etiketlenecek ürünlerin kutusunu işaretleyin.
 3. Her ürün için kaç etiket istediğinizi yazın.
 4. **Yazdır** düğmesine basın.
-5. Yazdırma penceresinde termal yazıcıyı seçin. Ayarları aşağıdaki gibi yapın.
-6. **Yazdır** düğmesine basın.
 
-Etiket boyutunu **Ayarlar** ekranında değiştirebilirsiniz. Varsayılan boyut 40 x 30 mm'dir.
+Etiketler hemen yazıcıdan çıkar. Önizleme, yazıcıdan çıkacak etiketin aynısıdır.
 
-## Termal yazıcı ayarı
-
-Kağıt boyutu, yazıcıdaki etiket boyutu ile aynı olmalı. Örnek: 40 x 30 mm.
-
-### Windows yazıcı ayarı (bir kez yapılır)
-
-1. **Başlat** menüsünü açın. **Yazıcılar ve tarayıcılar** yazın ve açın.
-2. Termal yazıcıyı seçin. **Yazdırma tercihleri** düğmesine basın.
-3. Kağıt (Stock veya Page Size) bölümünde yeni bir boyut ekleyin: genişlik 40 mm, yükseklik 30 mm.
-4. Bu boyutu seçin ve **Tamam** düğmesine basın.
-
-Ayar adları yazıcı markasına göre değişebilir.
-
-### Chrome yazdırma penceresi
-
-1. **Hedef**: termal yazıcıyı seçin.
-2. **Diğer ayarlar** bölümünü açın.
-3. **Kağıt boyutu**: etiket boyutunu seçin (örnek: 40 x 30 mm).
-4. **Kenar boşlukları**: **Yok**.
-5. **Ölçek**: **Özel**, **100**.
-6. **Üstbilgi ve altbilgi** kutusunu boş bırakın.
-
-Chrome bu ayarları bir sonraki yazdırma için hatırlar.
-
-Barkod bulanık veya kesik çıkarsa, ölçeğin 100 olduğunu kontrol edin.
+**Tarayıcı ile yazdır** düğmesi tarayıcının yazdırma penceresini açar. Bu düğmeyi yalnızca doğrudan yazdırma çalışmazsa kullanın. Pencerede kağıt boyutunu etiket ölçüsüne ayarlayın. Kenar boşluklarını **Yok**, ölçeği **100** yapın.
 
 ## Siparişler
 
 **Siparişler** ekranı seçilen günün siparişlerini gösterir. En yeni sipariş en üsttedir. Satırları görmek için siparişe tıklayın.
+
+### Siparişi iptal etme
+
+1. Siparişe tıklayın.
+2. **Siparişi İptal Et** düğmesine basın ve onaylayın.
+
+İptal edilen sipariş listede **İPTAL** olarak kalır. Günün toplamına eklenmez.
+
+### Siparişi silme
+
+Yalnızca iptal edilmiş bir sipariş silinebilir.
+
+1. İptal edilmiş siparişe tıklayın.
+2. **Siparişi Sil** düğmesine basın ve onaylayın.
+
+Silinen sipariş geri gelmez. Sipariş numarası başka bir siparişe verilmez.
 
 ## Güncelleme
 
