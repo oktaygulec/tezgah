@@ -1,14 +1,17 @@
 # Tezgah
 
 A small offline shop app: products, barcode labels on a thermal printer, price check, and sale orders.
-It ships as one executable. The executable starts a local server on `127.0.0.1`, opens the default
-browser, and keeps its data in a `data/` folder beside itself.
+On Windows it ships as one portable `Tezgah.exe`: an Electron window with the Bun server inside as a
+helper process. The server listens on `127.0.0.1` only. The data stays in a `data/` folder beside
+`Tezgah.exe`. No installer, no browser and no console window.
 
 Shop users: see [KULLANIM.md](KULLANIM.md) (Turkish).
 
 ## Requirements
 
 - [Bun](https://bun.sh) 1.4 or newer.
+- Node.js 22 or newer (electron-builder runs on Node).
+- `cd electron && bun install && node node_modules/electron/install.js` once (Bun does not run Electron's install script).
 
 ## Commands
 
@@ -18,22 +21,35 @@ Shop users: see [KULLANIM.md](KULLANIM.md) (Turkish).
 | Run in dev (data goes to `./data/`) | `bun run dev` |
 | Run tests | `bun test` |
 | Type check | `bunx tsc --noEmit` |
-| Build both executables | `bun run scripts/build.ts` |
+| Build the release files | `bun run scripts/build.ts` |
+| Make the app icon PNG again (after a change to `src/web/icon.svg`) | `bun run scripts/make-icon.ts` |
 
 `bun run dev` opens the browser. Set `TEZGAH_NO_BROWSER=1` to skip that (useful for scripts and tests).
 
 The build writes:
 
-- `dist/Tezgah.exe`: Windows x64 (console program; the console window must stay open).
-- `dist/tezgah-mac`: macOS arm64, for testing on a Mac.
+- `dist/Tezgah.exe`: Windows x64, electron-builder "portable" target (about 140 MB). It holds Electron
+  45 and the helper `dist/helper/tezgah-server.exe` (the Bun server, built with `--windows-hide-console`).
+- `dist/tezgah-mac`: macOS arm64, the Bun server alone, for testing on a Mac. It opens its page in a
+  Chrome or Edge app window (`src/server/desktop.ts`).
 - `dist/SHA256SUMS.txt`: checksums for the in-app updater.
 
-The first Windows build downloads the Bun Windows runtime, so the build machine needs internet once.
+The build runs on macOS. It needs no Wine. The first build downloads the Bun Windows runtime and the
+Electron Windows zip, so the build machine needs internet.
 The executables need no internet and no files beside them. HTML, JS and CSS are embedded through the
 HTML import in `src/server/main.ts`. The UI uses system fonts, so there are no font files.
 
 ## Runtime behaviour
 
+- Windows window (`electron/main.ts`): the portable launcher unpacks the app to a new temporary folder
+  (about 420 MB) on each start, then starts Electron. Electron shows "Tezgah açılıyor…", starts the
+  helper with `TEZGAH_SHELL=electron`, `TEZGAH_DATA_DIR=<folder of Tezgah.exe>\data` and
+  `TEZGAH_EXE_PATH=<Tezgah.exe>`, and loads the page when the helper prints `TEZGAH_READY <url>`.
+  Closing the window closes the helper's stdin; the helper then stops cleanly. A second start only
+  focuses the open window. Messages of both programs go to `data/tezgah.log`.
+- Electron's own profile (page storage such as the open cart) is in `%APPDATA%\Tezgah`.
+- Bare server (`tezgah-mac`, `bun run dev`): opens a Chrome/Edge app window, and stops 10 s after the
+  last page closes its `/api/live` WebSocket (compiled builds only; `TEZGAH_KEEP_RUNNING=1` turns this off).
 - Data: `data/tezgah.db` beside the executable (in dev: the project folder). Created on first start.
 - Backup: every start writes `data/backups/tezgah-YYYYMMDD-HHmmss.db` (Istanbul time) with `VACUUM INTO`. The newest 30 are kept.
 - Port: 5757. If a Tezgah already answers `/api/health` there, the new copy opens the browser and exits. If another program uses the port, the next 10 ports are tried. The app connects to the port before it binds, because macOS accepted a second bind to the same port in testing.
@@ -86,7 +102,9 @@ When the release tag is newer than the running version (`package.json` `version`
 1. It downloads `Tezgah.exe` (Windows) or `tezgah-mac` (macOS) and `SHA256SUMS.txt` from the release.
 2. It checks the SHA-256 of the download. On a mismatch it stops and changes nothing.
 3. It renames the running file to `<exe>.old`, then moves the new file into place. Windows allows a rename of a running `.exe`.
-4. It stops the server and starts the new file with `--updated <old port>`. The new process waits until the old one has stopped. It does not open a new browser tab. The open page waits for the new version, then reloads.
+4. It stops the server and starts the new file with `--updated <old port>`. The new process waits until the old one has stopped. The open page waits for the new version, then reloads.
+   Under Electron the helper swaps `TEZGAH_EXE_PATH` (the portable `Tezgah.exe`, not the helper) and
+   exits with code 75. Electron then calls `app.relaunch` with the new `Tezgah.exe` and exits.
 5. The new process deletes `<exe>.old`.
 
 The checksum file comes from the same release, so it only detects a broken download. It does not
@@ -119,7 +137,8 @@ src/web/         index.html, app.ts (tabs), api.ts, ui.ts (DOM helpers, dialogs,
                  labels, reports, settings), styles.css, print.css
 src/shared/      barcode.ts, money.ts, order.ts, csv.ts, report.ts, stock.ts, time.ts, tspl.ts, types.ts, validate.ts
 tests/           bun test files
-scripts/build.ts builds both executables
+electron/         main.ts (Electron window program), electron-builder.yml, build/icon.png
+scripts/build.ts builds the release files; scripts/make-icon.ts draws electron/build/icon.png
 ```
 
 ## API

@@ -7,7 +7,16 @@ import path from "node:path";
 import pkg from "../../package.json";
 import type { UpdateInfo } from "../shared/types";
 import { HttpError } from "./db";
-import { isCompiled } from "./system";
+import { inElectron, isCompiled } from "./system";
+
+/**
+ * The program file that an update replaces. Under Electron this is the portable Tezgah.exe
+ * (not the helper inside it), which the window program passes in TEZGAH_EXE_PATH.
+ */
+function programFile(): string | null {
+  if (inElectron) return process.env.TEZGAH_EXE_PATH || null;
+  return process.execPath;
+}
 
 export const VERSION: string = pkg.version;
 export const REPO = "oktaygulec/tezgah";
@@ -104,7 +113,8 @@ async function renameWithRetry(from: string, to: string) {
 
 /** Downloads, verifies and installs the latest release. Returns the installed version. */
 export async function installUpdate(): Promise<string> {
-  if (!isCompiled) throw new HttpError(400, "Geliştirme modunda güncelleme yapılamaz. Derlenmiş programı kullanın.");
+  const exe = programFile();
+  if (!isCompiled || !exe) throw new HttpError(400, "Geliştirme modunda güncelleme yapılamaz. Derlenmiş programı kullanın.");
   const assetName = assetNameFor(process.platform);
   if (!assetName) throw new HttpError(400, `Bu işletim sistemi için güncelleme yok: ${process.platform}`);
 
@@ -124,8 +134,7 @@ export async function installUpdate(): Promise<string> {
     throw new HttpError(502, "İndirilen dosya doğrulanamadı (SHA-256 uyuşmuyor). Güncelleme yapılmadı.");
   }
 
-  const exe = process.execPath;
-  const incoming = `${exe}.new`;
+    const incoming = `${exe}.new`;
   const old = `${exe}.old`;
   writeFileSync(incoming, bytes);
   if (process.platform !== "win32") chmodSync(incoming, 0o755);
@@ -165,8 +174,9 @@ export function updatedFromPort(argv: string[]): number | null {
 
 /** Removes the previous executable left by an update (the old process may still be closing). */
 export async function cleanUpOldExecutable() {
-  if (!isCompiled) return;
-  const old = `${process.execPath}.old`;
+  const exe = programFile();
+  if (!isCompiled || !exe) return;
+  const old = `${exe}.old`;
   for (let attempt = 1; existsSync(old); attempt++) {
     try {
       rmSync(old, { force: true });

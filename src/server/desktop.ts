@@ -1,9 +1,9 @@
-// Desktop behaviour: Tezgah opens in its own window (no address bar, no tabs), runs without a
-// console window, and stops when its last window closes.
+// Window and lifetime of the bare server (tezgah-mac, or the helper started by hand). The Windows
+// release does not use this window: there the Electron program (electron/main.ts) shows the page.
 //
-// The window is Microsoft Edge (or Chrome) in "app" mode with its own profile folder. Edge is part
-// of Windows 10 and 11, so nothing extra is installed. If no such browser is found, the default
-// browser opens the page as before.
+// The bare server opens its page in Chrome or Edge in "app" mode (no address bar, no tabs) with its
+// own profile folder, and stops when its last page closes. If no such browser is found, the default
+// browser opens the page.
 //
 // Environment variables (for tests): TEZGAH_NO_BROWSER=1 opens no window; TEZGAH_KEEP_RUNNING=1
 // keeps the program running when no window is open.
@@ -12,7 +12,7 @@ import { appendFileSync, existsSync, renameSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { format } from "node:util";
-import { isCompiled, openBrowser } from "./system";
+import { inElectron, isCompiled, openBrowser } from "./system";
 
 /** Edge first: it is on every Windows 10/11 computer. Then Chrome. */
 function findAppBrowser(): string | null {
@@ -79,7 +79,8 @@ export function createLifetime(
   {
     firstWindowMs = 120_000,
     lastWindowMs = 10_000,
-    enabled = isCompiled && process.env.TEZGAH_KEEP_RUNNING !== "1",
+    // Under Electron the window program decides when the server stops (see main.ts).
+    enabled = isCompiled && !inElectron && process.env.TEZGAH_KEEP_RUNNING !== "1",
   }: { firstWindowMs?: number; lastWindowMs?: number; enabled?: boolean } = {},
 ) {
   let windows = 0;
@@ -99,6 +100,12 @@ export function createLifetime(
   return {
     get windows() {
       return windows;
+    },
+    /** Stops at once (used when the Electron window program closes). */
+    stopNow() {
+      clearTimeout(timer);
+      console.log("Tezgah penceresi kapandı. Program duruyor.");
+      stop();
     },
     /** Another copy of Tezgah found this one and opens a window now: wait for that window. */
     expectWindow() {

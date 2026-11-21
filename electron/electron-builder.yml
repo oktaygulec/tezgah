@@ -1,0 +1,29 @@
+# Builds dist/electron/Tezgah.exe: one portable Windows program (no installer).
+# The Bun server (dist/helper/tezgah-server.exe) goes into resources/helper.
+# Run through scripts/build.ts, which builds the helper first and sets the version.
+appId: io.github.oktaygulec.tezgah
+productName: Tezgah
+directories:
+  output: ../dist/electron
+  buildResources: build
+files:
+  - out/main.js
+  - build/icon.png
+  - package.json
+extraResources:
+  - from: ../dist/helper
+    to: helper
+# Only the Turkish and English Chromium language files: a smaller program.
+electronLanguages:
+  - tr
+  - en-US
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
+  icon: build/icon.png
+portable:
+  # A new temporary folder for each start, so two starts never share (or delete) one folder.
+  unpackDirName: false
+  artifactName: Tezgah.exe

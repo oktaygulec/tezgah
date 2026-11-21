@@ -7,12 +7,17 @@ import { openDatabase } from "./db";
 import { createLifetime, LIVE_PATH, logToFile, openAppWindow, showErrorBox } from "./desktop";
 import { apiRoutes, type AppHooks } from "./routes";
 import { cleanUpOldExecutable, startNewProcess, updatedFromPort, VERSION } from "./update";
-import { dataDirectory, isAddressInUse, isCompiled, isPortTaken, isTezgahRunning } from "./system";
+import { dataDirectory, inElectron, isAddressInUse, isCompiled, isPortTaken, isTezgahRunning } from "./system";
 
 const FIRST_PORT = 5757;
 const EXTRA_PORTS = 10;
 /** After an update the open page reloads itself. If no window connects in this time, open one. */
 const UPDATE_WINDOW_WAIT_MS = 20_000;
+
+// Messages to the Electron window program (electron/main.ts), one line each on stdout.
+const READY = "TEZGAH_READY"; // followed by the page address
+/** Exit code that asks the Electron window program to start the newly installed Tezgah.exe. */
+const RESTART_EXIT_CODE = 75;
 
 async function main() {
   const dataDir = dataDirectory();
@@ -42,6 +47,7 @@ async function main() {
     restart() {
       const port = server?.port ?? FIRST_PORT;
       stopServer();
+      if (inElectron) process.exit(RESTART_EXIT_CODE);
       startNewProcess(port);
       process.exit(0);
     },
@@ -50,6 +56,11 @@ async function main() {
 
   for (let port = FIRST_PORT; port <= FIRST_PORT + EXTRA_PORTS; port++) {
     if (await isTezgahRunning(port)) {
+      if (inElectron) {
+        // Another server already runs (for example an older copy): the window uses it.
+        console.log(`${READY} http://localhost:${port}`);
+        process.exit(0);
+      }
       console.log(`Tezgah zaten çalışıyor (port ${port}). Yeni pencere açılıyor.`);
       openAppWindow(`http://localhost:${port}`);
       process.exit(0);
@@ -92,7 +103,13 @@ async function main() {
     console.log(`Adres: ${url}`);
     console.log(`Veri klasörü: ${dataDir}`);
     console.log(`Yedek: ${backup}`);
-    if (oldPort === null) {
+    if (inElectron) {
+      console.log(`${READY} ${url}`);
+      // The window program closes this pipe when it closes (or crashes): then stop cleanly.
+      process.stdin.on("close", () => lifetime.stopNow());
+      process.stdin.on("end", () => lifetime.stopNow());
+      process.stdin.resume();
+    } else if (oldPort === null) {
       openAppWindow(url);
     } else {
       // After an update the open page reloads itself. Open a window only if it does not come back.
@@ -108,6 +125,6 @@ async function main() {
 
 main().catch((e) => {
   console.error("Tezgah başlatılamadı:", e);
-  showErrorBox(`Tezgah başlatılamadı.\n\n${(e as Error)?.message ?? e}\n\nAyrıntılar: data\\tezgah.log`);
+  if (!inElectron) showErrorBox(`Tezgah başlatılamadı.\n\n${(e as Error)?.message ?? e}\n\nAyrıntılar: data\\tezgah.log`);
   process.exit(1);
 });

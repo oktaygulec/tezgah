@@ -6,8 +6,15 @@ import type { HealthResponse } from "../shared/types";
 /** True when running as a `bun build --compile` executable, false under `bun run`. */
 export const isCompiled = !/^bun(\.exe)?$/i.test(path.basename(process.execPath));
 
-/** data/ beside the executable; in dev, data/ in the project folder. */
+/**
+ * True when the Electron window program (electron/main.ts) runs this server as its helper.
+ * The window program then owns the window, the data folder and the restart after an update.
+ */
+export const inElectron = process.env.TEZGAH_SHELL === "electron";
+
+/** data/ beside the executable; in dev, data/ in the project folder. TEZGAH_DATA_DIR overrides both. */
 export function dataDirectory(): string {
+  if (process.env.TEZGAH_DATA_DIR) return process.env.TEZGAH_DATA_DIR;
   const base = isCompiled ? path.dirname(process.execPath) : path.resolve(import.meta.dir, "../..");
   return path.join(base, "data");
 }

@@ -6,13 +6,14 @@ Tezgah, dükkan için küçük bir satış ve etiket programıdır. İnternet ge
 
 1. `Tezgah.exe` dosyasını bir klasöre koyun. Örnek: `C:\Tezgah`.
 2. `Tezgah.exe` dosyasına çift tıklayın.
-3. Tezgah kendi penceresinde açılır. Adres çubuğu ve sekme yoktur.
+3. Birkaç saniye bekleyin. Program her açılışta kendi dosyalarını hazırlar.
+4. Tezgah kendi penceresinde açılır. Tarayıcı gerekmez.
 
-Programı kapatmak için Tezgah penceresini kapatın. Program birkaç saniye sonra tamamen durur.
+Programı kapatmak için Tezgah penceresini kapatın.
 
-Program zaten açıksa, yeniden çift tıklamak ikinci bir Tezgah penceresi açar.
+Program zaten açıksa, yeniden çift tıklamak açık pencereyi öne getirir.
 
-Tezgah penceresi Microsoft Edge ile çalışır. Edge her Windows 10 ve 11 bilgisayarda vardır. Edge bulunamazsa sayfa varsayılan tarayıcıda açılır.
+Klavye: **F5** sayfayı yeniler. **Ctrl +** ve **Ctrl -** yazıları büyütür ve küçültür. **Ctrl 0** eski boyuta döndürür.
 
 Ekranın üstünde kırmızı "Tezgah programı kapandı" yazısı çıkarsa: pencereyi kapatın ve `Tezgah.exe` dosyasına yeniden çift tıklayın.
 
@@ -248,7 +249,7 @@ Program her açılışta `data\backups` klasörüne bir yedek alır. Son 30 yede
 
 Kendi yedeğinizi almak için:
 
-1. Programı kapatın (Tezgah penceresini kapatın, 10 saniye bekleyin).
+1. Programı kapatın (Tezgah penceresini kapatın).
 2. `data` klasörünü kopyalayın. Örnek: bir USB belleğe.
 
 **Ayarlar** ekranındaki **Veritabanı yedeği indir** düğmesi de bir yedek dosyası indirir.
